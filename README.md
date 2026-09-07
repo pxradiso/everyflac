@@ -4,17 +4,6 @@
 
   <br><br>
 
-  <details>
-  <summary>📋 Click to view raw ASCII art</summary>
-
-```text
- ▄███▄ █   █ ▄███▄ ████▄ █   █ ████ █    ▄███▄ ▄███▄ 
- █▄▄▄▄ █   █ █▄▄▄▄ █▄▄▄█  █▄█  █▄▄  █    █▄▄▄█ █     
- █▀▀▀▀ ▀█▄█▀ █▀▀▀▀ █▀▀▄    █   █    █    █   █ █     
- ▀███▀   ▀   ▀███▀ █  ▀█   █   █    ████ █   █ ▀███▀ 
-```
-  </details>
-
 ### ⚡ everyFLAC by pxradise
 
 **The All-in-One Lossless FLAC Music Downloader & Interactive Terminal Workstation**
