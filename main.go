@@ -1,0 +1,209 @@
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"strings"
+
+	"everyflac-tui/pkg/config"
+	"everyflac-tui/pkg/downloader"
+	"everyflac-tui/pkg/models"
+	"everyflac-tui/pkg/spotify"
+	"everyflac-tui/pkg/tui"
+	"everyflac-tui/pkg/ytmusic"
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+const AppVersion = "1.1.0"
+
+func main() {
+	fs := flag.NewFlagSet("everyflac", flag.ExitOnError)
+
+	outputFlag := fs.String("output", "", "Destination directory for downloaded FLAC audio (default: ~/Music)")
+	fs.StringVar(outputFlag, "o", "", "Destination directory (shorthand)")
+
+	urlFlag := fs.String("url", "", "Spotify or YouTube Music URL to download directly without opening TUI")
+	fs.StringVar(urlFlag, "u", "", "URL (shorthand)")
+
+	searchFlag := fs.String("search", "", "Search query to find and download top matching song directly")
+	fs.StringVar(searchFlag, "s", "", "Search query (shorthand)")
+
+	modeFlag := fs.String("mode", "", "Source engine mode: auto, spotify, youtube")
+	fs.StringVar(modeFlag, "m", "", "Source engine mode (shorthand)")
+
+	versionFlag := fs.Bool("version", false, "Print application version")
+	fs.BoolVar(versionFlag, "v", false, "Print application version (shorthand)")
+
+	fs.Usage = func() {
+		fmt.Println(tui.GetASCIIBanner(0, false, false))
+		fmt.Printf("\n⚡ everyFLAC by pxradise v%s — All-in-One Lossless FLAC Music Downloader\n\n", AppVersion)
+		fmt.Println("Usage:")
+		fmt.Println("  everyflac                           Launch interactive TUI")
+		fmt.Println("  everyflac <url_or_search>           Download directly from command line")
+		fmt.Println("  everyflac --url <url>               Download Spotify or YouTube Music link directly")
+		fmt.Println("  everyflac --search <query>          Search and download top match directly")
+		fmt.Println("  everyflac --output <dir>            Set destination folder (default: ~/Music)")
+		fmt.Println("  everyflac --mode <auto|spotify|yt>  Force source engine mode")
+		fmt.Println("\nOptions:")
+		fs.PrintDefaults()
+	}
+
+	reordered := rearrangeArgs(os.Args[1:])
+	_ = fs.Parse(reordered)
+
+	if *versionFlag {
+		fmt.Printf("⚡ everyFLAC by pxradise v%s\n", AppVersion)
+		return
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		cfg = config.DefaultConfig()
+	}
+
+	if *outputFlag != "" {
+		cfg.OutputDir = config.ExpandPath(*outputFlag)
+	} else {
+		cfg.OutputDir = config.ExpandPath(cfg.OutputDir)
+	}
+
+	if *modeFlag != "" {
+		m := strings.ToLower(strings.TrimSpace(*modeFlag))
+		if m == "yt" || m == "ytmusic" || m == "youtube" {
+			cfg.SourceMode = "youtube"
+		} else if m == "sp" || m == "spotify" {
+			cfg.SourceMode = "spotify"
+		} else {
+			cfg.SourceMode = "auto"
+		}
+	}
+
+	cliInput := ""
+	if *urlFlag != "" {
+		cliInput = *urlFlag
+	} else if *searchFlag != "" {
+		cliInput = *searchFlag
+	} else if fs.NArg() > 0 {
+		cliInput = strings.Join(fs.Args(), " ")
+	}
+
+	if cliInput != "" {
+		runHeadlessCLI(cliInput, cfg)
+		return
+	}
+
+	model := tui.NewModel(cfg)
+	program := tea.NewProgram(
+		model,
+		tea.WithAltScreen(),
+	)
+
+	if _, err := program.Run(); err != nil {
+		fmt.Printf("Error running everyFLAC by pxradise: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func rearrangeArgs(args []string) []string {
+	var flags []string
+	var positionals []string
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if strings.HasPrefix(arg, "-") {
+			flags = append(flags, arg)
+
+			if !strings.Contains(arg, "=") && (arg == "-o" || arg == "--output" || arg == "-u" || arg == "--url" || arg == "-s" || arg == "--search" || arg == "-m" || arg == "--mode") {
+				if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					i++
+					flags = append(flags, args[i])
+				}
+			}
+		} else {
+			positionals = append(positionals, arg)
+		}
+	}
+
+	return append(flags, positionals...)
+}
+
+func runHeadlessCLI(input string, cfg *config.AppConfig) {
+	fmt.Println(tui.GetASCIIBanner(0, cfg.SourceMode == "youtube", false))
+	fmt.Printf("\n⚡ everyFLAC by pxradise CLI v%s\n", AppVersion)
+	fmt.Printf("Engine Mode: %s\n", strings.ToUpper(cfg.SourceMode))
+	fmt.Printf("Output: %s\n\n", cfg.OutputDir)
+
+	input = strings.TrimSpace(input)
+	var batch *models.DownloadBatch
+	var err error
+
+	mode := cfg.SourceMode
+
+	if mode == "youtube" && spotify.IsSpotifyURL(input) {
+
+		link, pErr := spotify.ParseLink(input)
+		if pErr == nil {
+			spClient := spotify.NewClient()
+			batch, err = spClient.FetchBatch(link)
+			if err == nil && batch != nil {
+				batch.Platform = models.PlatformYouTubeMusic
+				for _, t := range batch.Tracks {
+					t.Platform = models.PlatformYouTubeMusic
+					t.SourceURL = fmt.Sprintf("ytsearch1:%s - %s", t.Artist, t.Title)
+				}
+			}
+		}
+	} else if (mode == "auto" || mode == "spotify") && spotify.IsSpotifyURL(input) {
+		link, pErr := spotify.ParseLink(input)
+		if pErr != nil {
+			fmt.Printf("Error: %v\n", pErr)
+			os.Exit(1)
+		}
+		fmt.Println("Fetching Spotify metadata payload...")
+		spClient := spotify.NewClient()
+		batch, err = spClient.FetchBatch(link)
+	} else {
+		fmt.Printf("Resolving metadata for '%s'...\n", input)
+		ytClient := ytmusic.NewClient()
+		batch, err = ytClient.ResolveInput(input)
+		if err == nil && batch != nil && mode == "spotify" {
+			batch.Platform = models.PlatformSpotify
+			for _, t := range batch.Tracks {
+				t.Platform = models.PlatformSpotify
+			}
+		}
+	}
+
+	if err != nil {
+		fmt.Printf("Error resolving metadata: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Loaded: %s by %s (%d tracks, platform: %s)\n\n",
+		batch.Name, batch.Subtitle, len(batch.Tracks), batch.Platform)
+
+	dl := downloader.NewDownloader(cfg)
+	for i, track := range batch.Tracks {
+		fmt.Printf("[%d/%d] %s - %s...\n", i+1, len(batch.Tracks), track.Artist, track.Title)
+
+		prog, dlErr := dl.DownloadTrack(track, batch, func(p *models.TrackProgress) {
+			if p.Status == models.StatusDownloading && p.ProgressPercent > 0 {
+				speed := ""
+				if p.SpeedBytesPerSec > 0 {
+					speed = fmt.Sprintf(" (%.1f MB/s)", float64(p.SpeedBytesPerSec)/(1024*1024))
+				}
+				fmt.Printf("\r  ↳ Downloading lossless FLAC... %4.1f%%%s", p.ProgressPercent, speed)
+			}
+		})
+
+		fmt.Println()
+		if dlErr != nil {
+			fmt.Printf("  ✖ Failed: %v\n\n", dlErr)
+		} else {
+			fmt.Printf("  ✔ Saved: %s (%s, %s)\n\n", prog.FilePath, prog.QualityLabel, prog.SourceUsed)
+		}
+	}
+
+	fmt.Println("All done! Enjoy your lossless FLAC music with everyFLAC by pxradise.")
+}
