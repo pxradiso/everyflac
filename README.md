@@ -1,15 +1,29 @@
 <div align="center">
 
-  <img src="everyflac-banner.gif" alt="everyFLAC Banner" width="750" />
+  <img src="assets/everyflac-banner.gif" alt="everyFLAC Banner" width="750" />
+
+  <br><br>
+
+  <details>
+  <summary>📋 Click to view raw ASCII art</summary>
+
+```text
+ ▄███▄ █   █ ▄███▄ ████▄ █   █ ████ █    ▄███▄ ▄███▄ 
+ █▄▄▄▄ █   █ █▄▄▄▄ █▄▄▄█  █▄█  █▄▄  █    █▄▄▄█ █     
+ █▀▀▀▀ ▀█▄█▀ █▀▀▀▀ █▀▀▄    █   █    █    █   █ █     
+ ▀███▀   ▀   ▀███▀ █  ▀█   █   █    ████ █   █ ▀███▀ 
+```
+  </details>
 
 ### ⚡ everyFLAC by pxradise
 
 **The All-in-One Lossless FLAC Music Downloader & Interactive Terminal Workstation**
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)
-[![Audio Quality](https://img.shields.io/badge/Audio-24--bit%20Hi--Fi%20Lossless%20FLAC-9ece6a?style=for-the-badge&logo=flac)](https://img.shields.io/badge/Audio-24--bit%20Hi--Fi%20Lossless%20FLAC-9ece6a?style=for-the-badge&logo=flac)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)](https://github.com)
+[![Audio Quality](https://img.shields.io/badge/Audio-24--bit%20Hi--Fi%20Lossless%20FLAC-9ece6a?style=for-the-badge&logo=flac)](https://github.com)
 [![License](https://img.shields.io/badge/License-MIT-bb9af7?style=for-the-badge)](LICENSE)
+[![Style](https://img.shields.io/badge/Style-Catppuccin-cba6f7?style=for-the-badge&logo=catppuccin)](https://github.com/catppuccin/catppuccin)
 
 <p align="center">
   <b>True Lossless Studio Sound (24-bit / 96kHz & 16-bit / 44.1kHz)</b><br>
@@ -81,7 +95,6 @@ Launch the full interactive TUI:
 ```bash
 everyflac
 ```
-*(Or use `everyflac-tui` or `pxradise-everyflac`)*
 
 - Paste any Spotify track, album, or playlist link.
 - Paste any YouTube Music track or album link.
@@ -125,7 +138,7 @@ everyflac "Coldplay Yellow" -o ~/Music/Favorites
 | `[1, 2, 3]` | Jump directly to tab: `1` Queue, `2` Library, `3` Logs |
 | `[Ctrl+L]` | Jump directly to **Engine Logs** |
 | `[Ctrl+D]` | Set custom destination directory (persisted permanently) |
-| `[A]` / `[Ctrl+A]` | Toggle **Omarchy Animated Equalizer & Visual FX** |
+| `[A]` / `[Ctrl+A]` | Toggle **Animated Equalizer & Visual FX** |
 | `[O]` | Open destination directory in system file manager |
 | `[I]` or `/` | Focus search / URL input box |
 | `[Esc]` | Unfocus input box / Dismiss modals |
