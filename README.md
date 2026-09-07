@@ -1,11 +1,19 @@
 <div align="center">
 
+  <img src="assets/everyflac-banner.gif" alt="everyFLAC Banner" width="750" />
+
+  <br><br>
+
+  <details>
+  <summary>📋 Click to view raw ASCII art</summary>
+
 ```text
  ▄███▄ █   █ ▄███▄ ████▄ █   █ ████ █    ▄███▄ ▄███▄ 
  █▄▄▄▄ █   █ █▄▄▄▄ █▄▄▄█  █▄█  █▄▄  █    █▄▄▄█ █     
  █▀▀▀▀ ▀█▄█▀ █▀▀▀▀ █▀▀▄    █   █    █    █   █ █     
  ▀███▀   ▀   ▀███▀ █  ▀█   █   █    ████ █   █ ▀███▀ 
 ```
+  </details>
 
 ### ⚡ everyFLAC by pxradise
 
@@ -36,8 +44,8 @@
   High-resolution front covers are encoded in-memory and injected directly into FLAC `METADATA_BLOCK_PICTURE`. Complete VorbisComment tagging (Title, Artist, Album, Year, Track Number, ISRC). **No loose `cover.jpg` files cluttering your folders**.
 - 📁 **Direct-to-Music Storage**  
   Downloads go directly into your `~/Music` folder (`C:\Users\<user>\Music` on Windows) without redundant nested folders. Easily change your folder anytime with `[Ctrl+D]`.
-- 🌊 **Omarchy Aesthetic Terminal UI**  
-  Reactive animated wave equalizer, real-time download speeds (MB/s), interactive progress bar, live logs, and smooth tab switching powered by Charmbracelet (`bubbletea`, `lipgloss`).
+- 🔓 **Fully Open-Source**  
+  100% free and open-source software (FOSS). Transparent, community-driven, with zero telemetry, zero tracking, and no subscriptions.
 - 🪟 **100% Cross-Platform & Windows 10/11 Optimized**  
   Engineered specifically to eliminate Windows console glyph errors (encoding fallbacks for Consolas/cmd.exe, anti-overflow vertical sizing, zero ghost lines).
 - 🚀 **1-Click Self-Contained Installers**  
