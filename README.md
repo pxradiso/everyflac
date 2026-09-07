@@ -2,19 +2,6 @@
 
   <img src="everyflac-banner.gif" alt="everyFLAC Banner" width="750" />
 
-  <br><br>
-
-  <details>
-  <summary>📋 Click to view raw ASCII art</summary>
-
-```text
- ▄███▄ █   █ ▄███▄ ████▄ █   █ ████ █    ▄███▄ ▄███▄ 
- █▄▄▄▄ █   █ █▄▄▄▄ █▄▄▄█  █▄█  █▄▄  █    █▄▄▄█ █     
- █▀▀▀▀ ▀█▄█▀ █▀▀▀▀ █▀▀▄    █   █    █    █   █ █     
- ▀███▀   ▀   ▀███▀ █  ▀█   █   █    ████ █   █ ▀███▀ 
-```
-  </details>
-
 ### ⚡ everyFLAC by pxradise
 
 **The All-in-One Lossless FLAC Music Downloader & Interactive Terminal Workstation**
