@@ -2,8 +2,6 @@
 
   <img src="assets/everyflac-banner.gif" alt="everyFLAC Banner" width="750" />
 
-  <br><br>
-
 ### ⚡ everyFLAC by pxradise
 
 **The All-in-One Lossless FLAC Music Downloader & Interactive Terminal Workstation**
