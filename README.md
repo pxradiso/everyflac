@@ -7,7 +7,7 @@
 **The All-in-One Lossless FLAC Music Downloader & Interactive Terminal Workstation**
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)](https://github.com)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)
 [![Audio Quality](https://img.shields.io/badge/Audio-24--bit%20Hi--Fi%20Lossless%20FLAC-9ece6a?style=for-the-badge&logo=flac)](https://github.com)
 [![License](https://img.shields.io/badge/License-MIT-bb9af7?style=for-the-badge)](LICENSE)
 [![Style](https://img.shields.io/badge/Theme-Omarchy%20Aesthetic-73daca?style=for-the-badge)](https://github.com)
