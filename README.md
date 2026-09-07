@@ -19,6 +19,8 @@
 
 </div>
 
+<img src="assets/everyflac.mp4" alt="everyFLAC Banner" width="750" />
+
 ---
 
 ## ✨ Features
