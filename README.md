@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="assets/everyflac-banner.gif" alt="everyFLAC Banner" width="750" />
+  <img src="everyflac-banner.gif" alt="everyFLAC Banner" width="750" />
 
   <br><br>
 
