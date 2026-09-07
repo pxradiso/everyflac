@@ -10,7 +10,6 @@
 [![Platform](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)
 [![Audio Quality](https://img.shields.io/badge/Audio-24--bit%20Hi--Fi%20Lossless%20FLAC-9ece6a?style=for-the-badge&logo=flac)](https://img.shields.io/badge/Audio-24--bit%20Hi--Fi%20Lossless%20FLAC-9ece6a?style=for-the-badge&logo=flac)
 [![License](https://img.shields.io/badge/License-MIT-bb9af7?style=for-the-badge)](LICENSE)
-[![Style](https://img.shields.io/badge/Theme-Omarchy%20Aesthetic-73daca?style=for-the-badge)](https://github.com)
 
 <p align="center">
   <b>True Lossless Studio Sound (24-bit / 96kHz & 16-bit / 44.1kHz)</b><br>
