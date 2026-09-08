@@ -180,8 +180,11 @@ LOCAL_SOURCE=""
 # 1. Se siamo in locale e c'è main.go con il compilatore go disponibile
 if [ -f "$SCRIPT_DIR/main.go" ] && has_cmd go; then
     echo -e "  ${C_GREEN}✔ Go compiler found!${C_RESET} Building native binary for ${PLATFORM_NAME}..."
-    (cd "$SCRIPT_DIR" && go build -ldflags="-s -w" -o "${APP_NAME}${BINARY_EXT}" main.go)
-    LOCAL_SOURCE="$SCRIPT_DIR/${APP_NAME}${BINARY_EXT}"
+    if (cd "$SCRIPT_DIR" && go build -ldflags="-s -w" -o "${APP_NAME}${BINARY_EXT}" main.go 2>/dev/null); then
+        LOCAL_SOURCE="$SCRIPT_DIR/${APP_NAME}${BINARY_EXT}"
+    else
+        echo -e "  ${C_YELLOW}⚠ Native build failed, falling back to precompiled binary...${C_RESET}"
+    fi
 fi
 
 # 2. Se siamo in locale e c'è un binario precompilato nella cartella bin/
@@ -230,34 +233,64 @@ fi
 
 echo -e "  ${C_GREEN}✔ Installed executable:${C_RESET} $TARGET_BIN"
 
-SHELL_NAME="$(basename "${SHELL:-bash}")"
-PROFILE_FILES=()
+echo -e "\n${C_CYAN}➤ Configuring shell PATH & aliases...${C_RESET}"
 
-if [ "$SHELL_NAME" = "zsh" ]; then
-    PROFILE_FILES+=("$HOME/.zshrc")
-elif [ "$SHELL_NAME" = "fish" ]; then
-    PROFILE_FILES+=("$HOME/.config/fish/config.fish")
-else
-    PROFILE_FILES+=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
-fi
+SHELL_CONFIGURED=false
 
-PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
-PATH_CONFIGURED=false
-
-if [[ ":$PATH:" == *":$INSTALL_DIR:"* ]]; then
-    PATH_CONFIGURED=true
-fi
-
-if [ "$PATH_CONFIGURED" = false ]; then
-    for prof in "${PROFILE_FILES[@]}"; do
-        if [ -f "$prof" ] && ! grep -q ".local/bin" "$prof"; then
-            echo "" >> "$prof"
-            echo "$PATH_LINE" >> "$prof"
-            echo -e "  ${C_GREEN}✔${C_RESET} Added $INSTALL_DIR to PATH in ${C_BOLD}$prof${C_RESET}"
-            PATH_CONFIGURED=true
-            break
+# 1. Configurazione Bash
+for bash_prof in "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile"; do
+    if [ -f "$bash_prof" ]; then
+        if ! grep -q ".local/bin" "$bash_prof"; then
+            echo "" >> "$bash_prof"
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$bash_prof"
+            echo -e "  ${C_GREEN}✔${C_RESET} Added $INSTALL_DIR to PATH in ${C_BOLD}$bash_prof${C_RESET}"
+            SHELL_CONFIGURED=true
         fi
-    done
+        break
+    fi
+done
+
+# 2. Configurazione Zsh
+if [ -f "$HOME/.zshrc" ] || has_cmd zsh; then
+    ZSH_RC="$HOME/.zshrc"
+    [ ! -f "$ZSH_RC" ] && touch "$ZSH_RC"
+    if ! grep -q ".local/bin" "$ZSH_RC"; then
+        echo "" >> "$ZSH_RC"
+        echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$ZSH_RC"
+        echo -e "  ${C_GREEN}✔${C_RESET} Added $INSTALL_DIR to PATH in ${C_BOLD}$ZSH_RC${C_RESET}"
+        SHELL_CONFIGURED=true
+    fi
+fi
+
+# 3. Configurazione Fish Shell
+if has_cmd fish || [ -d "$HOME/.config/fish" ] || [ -f "$HOME/.config/fish/config.fish" ]; then
+    FISH_CONFIG_DIR="$HOME/.config/fish"
+    FISH_CONFIG="$FISH_CONFIG_DIR/config.fish"
+    mkdir -p "$FISH_CONFIG_DIR"
+    [ ! -f "$FISH_CONFIG" ] && touch "$FISH_CONFIG"
+
+    # Aggiorna PATH con sintassi nativa Fish
+    if ! grep -q ".local/bin" "$FISH_CONFIG"; then
+        echo "" >> "$FISH_CONFIG"
+        echo '# everyFLAC PATH' >> "$FISH_CONFIG"
+        echo 'if test -d "$HOME/.local/bin"' >> "$FISH_CONFIG"
+        echo '    set -gx PATH "$HOME/.local/bin" $PATH' >> "$FISH_CONFIG"
+        echo 'end' >> "$FISH_CONFIG"
+        echo -e "  ${C_GREEN}✔${C_RESET} Added $INSTALL_DIR to PATH in ${C_BOLD}$FISH_CONFIG${C_RESET}"
+        SHELL_CONFIGURED=true
+    fi
+
+    # Registra l'alias per fish in config.fish
+    if ! grep -q "alias everyflac=" "$FISH_CONFIG"; then
+        echo 'alias everyflac="$HOME/.local/bin/everyflac"' >> "$FISH_CONFIG"
+        echo -e "  ${C_GREEN}✔${C_RESET} Added alias 'everyflac' in ${C_BOLD}$FISH_CONFIG${C_RESET}"
+        SHELL_CONFIGURED=true
+    fi
+
+    # Se fish è installato, applica anche tramite fish_add_path
+    if has_cmd fish; then
+        fish -c 'fish_add_path "$HOME/.local/bin"' 2>/dev/null || true
+    fi
 fi
 
 echo -e "\n${C_GREEN}${C_BOLD}✨ Installation Complete!${C_RESET}"
@@ -268,6 +301,6 @@ echo -e "  ${C_JADE}${C_BOLD}everyflac <spotify_or_yt_url>${C_RESET}   (Download
 echo -e "  ${C_JADE}${C_BOLD}everyflac --search <song_name>${C_RESET}  (Search & download)"
 echo -e "${C_MUTED}──────────────────────────────────────────────────────────${C_RESET}"
 
-if [ "$PATH_CONFIGURED" = true ] && [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    echo -e "${C_YELLOW}Note:${C_RESET} Run '${C_BOLD}source ~/.bashrc${C_RESET}' or restart your terminal to reload PATH."
+if [ "$SHELL_CONFIGURED" = true ]; then
+    echo -e "${C_YELLOW}Note:${C_RESET} Restart your terminal or run ${C_BOLD}source ~/.config/fish/config.fish${C_RESET} (or ${C_BOLD}source ~/.bashrc${C_RESET}) to apply changes."
 fi
