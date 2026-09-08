@@ -107,65 +107,68 @@ has_cmd() {
     command -v "$1" >/dev/null 2>&1
 }
 
-YTDLP_VALID=false
-if has_cmd yt-dlp || [ -f "$HOME/.local/bin/yt-dlp" ] || [ -f "$HOME/.local/bin/yt-dlp.exe" ]; then
-    YTDLP_EXEC="$(which yt-dlp 2>/dev/null || true)"
-    if [ -z "$YTDLP_EXEC" ] && [ -f "$HOME/.local/bin/yt-dlp" ]; then
-        YTDLP_EXEC="$HOME/.local/bin/yt-dlp"
-    fi
-    if [ -n "$YTDLP_EXEC" ]; then
-        YTDLP_VER="$("$YTDLP_EXEC" --version 2>/dev/null || echo "0")"
-        YTDLP_YEAR="$(echo "$YTDLP_VER" | cut -d. -f1)"
-        if [ "$YTDLP_YEAR" -ge 2025 ] 2>/dev/null; then
-            YTDLP_VALID=true
-            echo -e "  ${C_GREEN}✔${C_RESET} yt-dlp up to date (v$YTDLP_VER): $YTDLP_EXEC"
-        else
-            echo -e "  ${C_YELLOW}⚠ yt-dlp is outdated (v$YTDLP_VER at $YTDLP_EXEC).${C_RESET}"
-            echo -e "    Debian/Ubuntu apt packages are obsolete and break on YouTube. Upgrading to latest official binary..."
-        fi
+echo -e "  ${C_CYAN}➤ Installing latest official yt-dlp from GitHub releases...${C_RESET}"
+mkdir -p "$HOME/.local/bin"
+if [ "$OS" = "windows" ]; then
+    curl -fSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -o "$HOME/.local/bin/yt-dlp.exe"
+    chmod +x "$HOME/.local/bin/yt-dlp.exe" 2>/dev/null || true
+else
+    curl -fSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "$HOME/.local/bin/yt-dlp"
+    chmod +x "$HOME/.local/bin/yt-dlp"
+    if $IS_MACOS; then
+        xattr -c "$HOME/.local/bin/yt-dlp" 2>/dev/null || true
     fi
 fi
-
-if [ "$YTDLP_VALID" = false ]; then
-    echo -e "  ${C_CYAN}➤ Installing latest official standalone yt-dlp...${C_RESET}"
-    mkdir -p "$HOME/.local/bin"
-    if [ "$OS" = "windows" ]; then
-        curl -fSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -o "$HOME/.local/bin/yt-dlp.exe"
-        chmod +x "$HOME/.local/bin/yt-dlp.exe" 2>/dev/null || true
-    else
-        curl -fSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "$HOME/.local/bin/yt-dlp"
-        chmod +x "$HOME/.local/bin/yt-dlp"
-        if $IS_MACOS; then
-            xattr -c "$HOME/.local/bin/yt-dlp" 2>/dev/null || true
-        fi
-    fi
-    export PATH="$HOME/.local/bin:$PATH"
-    echo -e "  ${C_GREEN}✔${C_RESET} Installed latest yt-dlp to ~/.local/bin/yt-dlp"
-fi
+export PATH="$HOME/.local/bin:$PATH"
+echo -e "  ${C_GREEN}✔${C_RESET} Installed latest yt-dlp from GitHub to ~/.local/bin/yt-dlp"
 
 if has_cmd ffmpeg; then
     echo -e "  ${C_GREEN}✔${C_RESET} ffmpeg found: $(which ffmpeg)"
+elif [ -f "$HOME/.local/bin/ffmpeg" ] || [ -f "$HOME/.local/bin/ffmpeg.exe" ]; then
+    echo -e "  ${C_GREEN}✔${C_RESET} ffmpeg found in ~/.local/bin"
+    export PATH="$HOME/.local/bin:$PATH"
 else
-    echo -e "  ${C_YELLOW}⚠ ffmpeg not found.${C_RESET} Attempting automatic installation..."
-    if $IS_MACOS && has_cmd brew; then
-        brew install ffmpeg || true
-    elif $IS_LINUX; then
-        if has_cmd pacman; then
-            sudo pacman -Sy --noconfirm ffmpeg 2>/dev/null || true
-        elif has_cmd apt-get; then
-            sudo apt-get update -qq && sudo apt-get install -y ffmpeg 2>/dev/null || true
-        elif has_cmd dnf; then
-            sudo dnf install -y ffmpeg 2>/dev/null || true
-        elif has_cmd zypper; then
-            sudo zypper install -y ffmpeg 2>/dev/null || true
-        elif has_cmd apk; then
-            sudo apk add ffmpeg 2>/dev/null || true
-        elif has_cmd xbps-install; then
-            sudo xbps-install -Sy ffmpeg 2>/dev/null || true
+    echo -e "  ${C_YELLOW}⚠ ffmpeg not found.${C_RESET} Installing standalone binary from GitHub..."
+    mkdir -p "$HOME/.local/bin"
+    FFMPEG_URL=""
+    if $IS_LINUX; then
+        if [ "$ARCH" = "arm64" ]; then
+            FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-linux-arm64"
+        else
+            FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-linux-x64"
         fi
-    elif $IS_WINDOWS && has_cmd winget; then
-        winget install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements || true
+    elif $IS_MACOS; then
+        if [ "$ARCH" = "arm64" ]; then
+            FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-darwin-arm64"
+        else
+            FFMPEG_URL="https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-darwin-x64"
+        fi
     fi
+
+    FFMPEG_INSTALLED=false
+    if [ -n "$FFMPEG_URL" ]; then
+        if curl -fSL --progress-bar "$FFMPEG_URL" -o "$HOME/.local/bin/ffmpeg"; then
+            chmod +x "$HOME/.local/bin/ffmpeg"
+            if $IS_MACOS; then
+                xattr -c "$HOME/.local/bin/ffmpeg" 2>/dev/null || true
+            fi
+            FFMPEG_INSTALLED=true
+            echo -e "  ${C_GREEN}✔${C_RESET} Installed static ffmpeg from GitHub to ~/.local/bin/ffmpeg"
+        fi
+    fi
+
+    if [ "$FFMPEG_INSTALLED" = false ]; then
+        if $IS_MACOS && has_cmd brew; then
+            brew install ffmpeg || true
+        elif $IS_LINUX && has_cmd apt-get; then
+            sudo apt-get update -qq && sudo apt-get install -y ffmpeg 2>/dev/null || true
+        elif $IS_LINUX && has_cmd pacman; then
+            sudo pacman -Sy --noconfirm ffmpeg 2>/dev/null || true
+        elif $IS_WINDOWS && has_cmd winget; then
+            winget install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements || true
+        fi
+    fi
+    export PATH="$HOME/.local/bin:$PATH"
 fi
 
 if ! has_cmd yt-dlp && [ ! -f "$HOME/.local/bin/yt-dlp" ] && [ ! -f "$HOME/.local/bin/yt-dlp.exe" ]; then

@@ -371,6 +371,7 @@ func (d *Downloader) downloadSpotifyLosslessPipeline(
 		"/usr/local/bin/ffmpeg",
 	}
 	ffmpegPath := findExecutable("ffmpeg", ffmpegCandidates)
+	ffmpegPath = d.ensureValidFFmpeg(ffmpegPath)
 	if ffmpegPath == "" {
 		return errors.New("ffmpeg binary not found on system")
 	}
@@ -504,6 +505,7 @@ func (d *Downloader) downloadDirectLosslessPipeline(
 		"/usr/local/bin/ffmpeg",
 	}
 	ffmpegPath := findExecutable("ffmpeg", ffmpegCandidates)
+	ffmpegPath = d.ensureValidFFmpeg(ffmpegPath)
 	if ffmpegPath == "" {
 		return errors.New("ffmpeg binary not found on system")
 	}
@@ -768,14 +770,8 @@ func (d *Downloader) ensureValidYtDlp(currentPath string) string {
 			return false
 		}
 		ver := strings.TrimSpace(string(out))
-		parts := strings.Split(ver, ".")
-		if len(parts) > 0 {
-			var year int
-			if _, err := fmt.Sscanf(parts[0], "%d", &year); err == nil && year >= 2025 {
-				return true
-			}
-		}
-		return false
+		// Require at least 2026.08.19 which introduced visionos client & bypasses YouTube reload errors
+		return ver >= "2026.08.19"
 	}
 
 	if isValid(userLocal) {
@@ -827,6 +823,81 @@ func downloadYtDlpStandalone(destPath string) error {
 		return copyErr
 	}
 
+	_ = os.Chmod(tmpFile, 0755)
+	return os.Rename(tmpFile, destPath)
+}
+
+func (d *Downloader) ensureValidFFmpeg(currentPath string) string {
+	if currentPath != "" {
+		if _, err := os.Stat(currentPath); err == nil {
+			return currentPath
+		}
+	}
+	homeDir, _ := os.UserHomeDir()
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	userLocal := filepath.Join(homeDir, ".local", "bin", "ffmpeg"+ext)
+	if _, err := os.Stat(userLocal); err == nil {
+		return userLocal
+	}
+
+	// Download static ffmpeg directly from GitHub
+	if err := downloadFFmpegStandalone(userLocal); err == nil {
+		_ = os.Chmod(userLocal, 0755)
+		return userLocal
+	}
+
+	return currentPath
+}
+
+func downloadFFmpegStandalone(destPath string) error {
+	_ = os.MkdirAll(filepath.Dir(destPath), 0755)
+	url := ""
+	switch runtime.GOOS {
+	case "linux":
+		if runtime.GOARCH == "arm64" {
+			url = "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-linux-arm64"
+		} else {
+			url = "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-linux-x64"
+		}
+	case "darwin":
+		if runtime.GOARCH == "arm64" {
+			url = "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-darwin-arm64"
+		} else {
+			url = "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-darwin-x64"
+		}
+	case "windows":
+		url = "https://github.com/eugeneware/ffmpeg-static/releases/latest/download/ffmpeg-win32-x64"
+	}
+	if url == "" {
+		return fmt.Errorf("unsupported platform for static ffmpeg")
+	}
+
+	client := &http.Client{Timeout: 180 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	tmpFile := destPath + ".tmp"
+	f, err := os.OpenFile(tmpFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(f, resp.Body)
+	f.Close()
+
+	if copyErr != nil {
+		_ = os.Remove(tmpFile)
+		return copyErr
+	}
 	_ = os.Chmod(tmpFile, 0755)
 	return os.Rename(tmpFile, destPath)
 }
