@@ -83,6 +83,24 @@ cd everyflac-tui
 
 ---
 
+### 🗑️ Uninstallation (All Operating Systems)
+
+To cleanly remove everyFLAC, its shell integrations (Fish, Zsh, Bash), and configuration files:
+
+```bash
+everyflac --remove
+```
+*(Or non-interactively without prompt: `everyflac --remove -y`)*
+
+Alternatively, using the setup script:
+```bash
+./setup.sh --remove
+# or via curl:
+curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh | bash -s -- --remove
+```
+
+---
+
 ## 💻 Usage
 
 ### 1. Interactive Terminal UI (TUI)

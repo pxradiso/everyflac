@@ -11,6 +11,7 @@ import (
 	"everyflac-tui/pkg/models"
 	"everyflac-tui/pkg/spotify"
 	"everyflac-tui/pkg/tui"
+	"everyflac-tui/pkg/uninstaller"
 	"everyflac-tui/pkg/ytmusic"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -35,6 +36,12 @@ func main() {
 	versionFlag := fs.Bool("version", false, "Print application version")
 	fs.BoolVar(versionFlag, "v", false, "Print application version (shorthand)")
 
+	removeFlag := fs.Bool("remove", false, "Uninstall everyFLAC and remove binaries and shell configurations")
+	fs.BoolVar(removeFlag, "uninstall", false, "Uninstall everyFLAC (alias for --remove)")
+
+	yesFlag := fs.Bool("yes", false, "Confirm uninstallation without interactive prompt")
+	fs.BoolVar(yesFlag, "y", false, "Confirm uninstallation without interactive prompt (shorthand)")
+
 	fs.Usage = func() {
 		fmt.Println(tui.GetASCIIBanner(0, false, false))
 		fmt.Printf("\n⚡ everyFLAC by pxradise v%s — All-in-One Lossless FLAC Music Downloader\n\n", AppVersion)
@@ -45,6 +52,7 @@ func main() {
 		fmt.Println("  everyflac --search <query>          Search and download top match directly")
 		fmt.Println("  everyflac --output <dir>            Set destination folder (default: ~/Music)")
 		fmt.Println("  everyflac --mode <auto|spotify|yt>  Force source engine mode")
+		fmt.Println("  everyflac --remove                  Uninstall and remove everyFLAC completely")
 		fmt.Println("\nOptions:")
 		fs.PrintDefaults()
 	}
@@ -54,6 +62,14 @@ func main() {
 
 	if *versionFlag {
 		fmt.Printf("⚡ everyFLAC by pxradise v%s\n", AppVersion)
+		return
+	}
+
+	if *removeFlag {
+		if err := uninstaller.Run(*yesFlag); err != nil {
+			fmt.Printf("Error during removal: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	}
 

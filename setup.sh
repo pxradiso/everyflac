@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+# Assicura che i percorsi standard (Homebrew, /usr/local, ~/.local/bin) siano nel PATH
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$HOME/.local/bin:$PATH"
+
 C_RESET="\033[0m"
 C_BOLD="\033[1m"
 C_JADE="\033[38;2;115;218;202m"
@@ -23,6 +26,25 @@ ASCII
 echo -e "${C_RESET}"
 echo -e "  ${C_BOLD}⚡ everyFLAC by pxradise — Universal Setup & Installer${C_RESET}"
 echo -e "  ${C_MUTED}───────────────────────────────────────────────────────────${C_RESET}\n"
+
+if [ "$1" = "--remove" ] || [ "$1" = "-remove" ] || [ "$1" = "--uninstall" ] || [ "$1" = "-uninstall" ] || [ "$1" = "remove" ] || [ "$1" = "uninstall" ]; then
+    echo -e "${C_CYAN}➤ Uninstalling everyFLAC by pxradise...${C_RESET}"
+    INSTALL_DIR="$HOME/.local/bin"
+    rm -f "$INSTALL_DIR/everyflac" "$INSTALL_DIR/everyflac.exe" "$INSTALL_DIR/everyflac-tui" "$INSTALL_DIR/everyflac-tui.exe" "$INSTALL_DIR/pxradise-everyflac" "$INSTALL_DIR/pxradise-everyflac.exe"
+    echo -e "  ${C_GREEN}✔${C_RESET} Removed executable from $INSTALL_DIR"
+
+    rm -f "$HOME/.config/fish/functions/everyflac.fish"
+    if [ -f "$HOME/.config/fish/config.fish" ]; then
+        sed -i '/alias everyflac=/d' "$HOME/.config/fish/config.fish" 2>/dev/null || sed -i '' '/alias everyflac=/d' "$HOME/.config/fish/config.fish" 2>/dev/null || true
+    fi
+    echo -e "  ${C_GREEN}✔${C_RESET} Removed Fish shell function & alias"
+
+    rm -rf "$HOME/.config/everyflac"
+    echo -e "  ${C_GREEN}✔${C_RESET} Removed configuration directory"
+
+    echo -e "\n${C_GREEN}${C_BOLD}✨ everyFLAC has been successfully removed from your system.${C_RESET}"
+    exit 0
+fi
 
 OS_TYPE="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH_RAW="$(uname -m)"
@@ -263,13 +285,36 @@ if [ -f "$HOME/.zshrc" ] || has_cmd zsh; then
 fi
 
 # 3. Configurazione Fish Shell
-if has_cmd fish || [ -d "$HOME/.config/fish" ] || [ -f "$HOME/.config/fish/config.fish" ]; then
-    FISH_CONFIG_DIR="$HOME/.config/fish"
+FISH_BIN=""
+if has_cmd fish; then
+    FISH_BIN="$(command -v fish)"
+elif [ -x "/opt/homebrew/bin/fish" ]; then
+    FISH_BIN="/opt/homebrew/bin/fish"
+elif [ -x "/usr/local/bin/fish" ]; then
+    FISH_BIN="/usr/local/bin/fish"
+elif [ -x "/usr/bin/fish" ]; then
+    FISH_BIN="/usr/bin/fish"
+elif [ -x "/bin/fish" ]; then
+    FISH_BIN="/bin/fish"
+fi
+
+FISH_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/fish"
+
+if [ -n "$FISH_BIN" ] || [ -d "$FISH_CONFIG_DIR" ] || [ -f "$FISH_CONFIG_DIR/config.fish" ]; then
     FISH_CONFIG="$FISH_CONFIG_DIR/config.fish"
-    mkdir -p "$FISH_CONFIG_DIR"
+    mkdir -p "$FISH_CONFIG_DIR/functions"
     [ ! -f "$FISH_CONFIG" ] && touch "$FISH_CONFIG"
 
-    # Aggiorna PATH con sintassi nativa Fish
+    # Funzione autoload nativa di Fish (funziona all'istante anche nei terminali fish già aperti!)
+    cat << 'FISH_FUNC' > "$FISH_CONFIG_DIR/functions/everyflac.fish"
+function everyflac --wraps="$HOME/.local/bin/everyflac" --description 'Lossless FLAC music downloader'
+    $HOME/.local/bin/everyflac $argv
+end
+FISH_FUNC
+    echo -e "  ${C_GREEN}✔${C_RESET} Added fish autoload function: ${C_BOLD}$FISH_CONFIG_DIR/functions/everyflac.fish${C_RESET}"
+    SHELL_CONFIGURED=true
+
+    # Aggiorna PATH con sintassi nativa Fish in config.fish
     if ! grep -q ".local/bin" "$FISH_CONFIG"; then
         echo "" >> "$FISH_CONFIG"
         echo '# everyFLAC PATH' >> "$FISH_CONFIG"
@@ -287,9 +332,9 @@ if has_cmd fish || [ -d "$HOME/.config/fish" ] || [ -f "$HOME/.config/fish/confi
         SHELL_CONFIGURED=true
     fi
 
-    # Se fish è installato, applica anche tramite fish_add_path
-    if has_cmd fish; then
-        fish -c 'fish_add_path "$HOME/.local/bin"' 2>/dev/null || true
+    # Se fish è installato, applica anche come Universal Variable
+    if [ -n "$FISH_BIN" ]; then
+        "$FISH_BIN" -c 'fish_add_path -U "$HOME/.local/bin"' 2>/dev/null || "$FISH_BIN" -c 'fish_add_path "$HOME/.local/bin"' 2>/dev/null || true
     fi
 fi
 
