@@ -46,15 +46,15 @@
 
 ### 🐧 Linux & 🍎 macOS (1-Line Instant Installer)
 
-Installa direttamente senza dover clonare il repository:
+Install directly without having to clone the repository:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh | bash
 ```
-*(Oppure `bash -c "$(curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh)"`)*
+*(Or `bash -c "$(curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh)"`)*
 
 <details>
-<summary>🛠️ Oppure installa clonando il repository manualmente</summary>
+<summary>🛠️ Or install by cloning the repository manually</summary>
 
 ```bash
 git clone https://github.com/pxradiso/everyflac.git
@@ -65,7 +65,7 @@ chmod +x ./setup.sh
 
 </details>
 
-> **Cosa fa:** Rileva il gestore pacchetti di sistema (`pacman`, `apt`, `dnf`, `zypper`, `apk`, `xbps`, `brew`), verifica e installa `ffmpeg` e `yt-dlp`, scarica o compila il binario `everyflac` in `~/.local/bin` e configura automaticamente il `$PATH` nella tua shell (`.bashrc`, `.zshrc`, `config.fish`).
+> **What it does:** Automatically detects your package manager (`pacman`, `apt`, `dnf`, `zypper`, `apk`, `xbps`, `brew`), verifies and installs `ffmpeg` and `yt-dlp`, installs the `everyflac` binary to `~/.local/bin`, and configures your shell `$PATH` (`.bashrc`, `.zshrc`, `config.fish`).
 
 ---
 
