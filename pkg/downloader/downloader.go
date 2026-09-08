@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -347,19 +348,29 @@ func (d *Downloader) downloadSpotifyLosslessPipeline(
 	prog *models.TrackProgress,
 	onProgress ProgressCallback,
 ) error {
-	ytdlpPath := findExecutable("yt-dlp", []string{
-		"/home/pxradise/.local/bin/yt-dlp",
+	homeDir, _ := os.UserHomeDir()
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+
+	ytdlpCandidates := []string{
+		filepath.Join(homeDir, ".local", "bin", "yt-dlp"+ext),
 		"/usr/local/bin/yt-dlp",
 		"/usr/bin/yt-dlp",
-	})
+	}
+	ytdlpPath := findExecutable("yt-dlp", ytdlpCandidates)
+	ytdlpPath = d.ensureValidYtDlp(ytdlpPath)
 	if ytdlpPath == "" {
 		return errors.New("yt-dlp binary not found on system")
 	}
 
-	ffmpegPath := findExecutable("ffmpeg", []string{
+	ffmpegCandidates := []string{
+		filepath.Join(homeDir, ".local", "bin", "ffmpeg"+ext),
 		"/usr/bin/ffmpeg",
 		"/usr/local/bin/ffmpeg",
-	})
+	}
+	ffmpegPath := findExecutable("ffmpeg", ffmpegCandidates)
 	if ffmpegPath == "" {
 		return errors.New("ffmpeg binary not found on system")
 	}
@@ -404,7 +415,7 @@ func (d *Downloader) downloadSpotifyLosslessPipeline(
 			"--audio-quality", "0",
 			"--no-playlist",
 			"--concurrent-fragments", "5",
-			"--socket-timeout", "5",
+			"--socket-timeout", "30",
 			"--no-cache-dir",
 			"--newline",
 			"--ffmpeg-location", filepath.Dir(ffmpegPath),
@@ -424,13 +435,21 @@ func (d *Downloader) downloadSpotifyLosslessPipeline(
 			continue
 		}
 
+		var ytErrors []string
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
 			line := scanner.Text()
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "ERROR:") {
+				ytErrors = append(ytErrors, trimmed)
+			}
 			d.parseYtDlpOutput(line, prog, onProgress)
 		}
 
-		_ = cmd.Wait()
+		waitErr := cmd.Wait()
+		if waitErr != nil && len(ytErrors) > 0 {
+			lastErr = errors.New(strings.Join(ytErrors, "; "))
+		}
 
 		if _, err := os.Stat(expectedFlac); err == nil && tagger.IsFLAC(expectedFlac) {
 			return nil
@@ -461,19 +480,29 @@ func (d *Downloader) downloadDirectLosslessPipeline(
 	prog *models.TrackProgress,
 	onProgress ProgressCallback,
 ) error {
-	ytdlpPath := findExecutable("yt-dlp", []string{
-		"/home/pxradise/.local/bin/yt-dlp",
+	homeDir, _ := os.UserHomeDir()
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+
+	ytdlpCandidates := []string{
+		filepath.Join(homeDir, ".local", "bin", "yt-dlp"+ext),
 		"/usr/local/bin/yt-dlp",
 		"/usr/bin/yt-dlp",
-	})
+	}
+	ytdlpPath := findExecutable("yt-dlp", ytdlpCandidates)
+	ytdlpPath = d.ensureValidYtDlp(ytdlpPath)
 	if ytdlpPath == "" {
 		return errors.New("yt-dlp binary not found on system")
 	}
 
-	ffmpegPath := findExecutable("ffmpeg", []string{
+	ffmpegCandidates := []string{
+		filepath.Join(homeDir, ".local", "bin", "ffmpeg"+ext),
 		"/usr/bin/ffmpeg",
 		"/usr/local/bin/ffmpeg",
-	})
+	}
+	ffmpegPath := findExecutable("ffmpeg", ffmpegCandidates)
 	if ffmpegPath == "" {
 		return errors.New("ffmpeg binary not found on system")
 	}
@@ -495,7 +524,7 @@ func (d *Downloader) downloadDirectLosslessPipeline(
 		"--audio-quality", "0",
 		"--no-playlist",
 		"--concurrent-fragments", "5",
-		"--socket-timeout", "5",
+		"--socket-timeout", "30",
 		"--no-cache-dir",
 		"--newline",
 		"--ffmpeg-location", filepath.Dir(ffmpegPath),
@@ -513,13 +542,21 @@ func (d *Downloader) downloadDirectLosslessPipeline(
 		return fmt.Errorf("failed to start audio pipeline: %w", err)
 	}
 
+	var ytErrors []string
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
 		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "ERROR:") {
+			ytErrors = append(ytErrors, trimmed)
+		}
 		d.parseYtDlpOutput(line, prog, onProgress)
 	}
 
 	if err := cmd.Wait(); err != nil {
+		if len(ytErrors) > 0 {
+			return fmt.Errorf("audio download failed: %s", strings.Join(ytErrors, "; "))
+		}
 		return fmt.Errorf("audio conversion failed: %w", err)
 	}
 
@@ -689,15 +726,107 @@ func parseBytes(s string) int64 {
 }
 
 func findExecutable(name string, commonPaths []string) string {
-	if p, err := exec.LookPath(name); err == nil {
-		return p
+	homeDir, _ := os.UserHomeDir()
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	if homeDir != "" {
+		userLocal := filepath.Join(homeDir, ".local", "bin", name+ext)
+		if _, err := os.Stat(userLocal); err == nil {
+			return userLocal
+		}
 	}
 	for _, p := range commonPaths {
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}
 	}
+	if p, err := exec.LookPath(name); err == nil {
+		return p
+	}
 	return ""
+}
+
+func (d *Downloader) ensureValidYtDlp(currentPath string) string {
+	homeDir, _ := os.UserHomeDir()
+	ext := ""
+	if runtime.GOOS == "windows" {
+		ext = ".exe"
+	}
+	userLocal := filepath.Join(homeDir, ".local", "bin", "yt-dlp"+ext)
+
+	isValid := func(p string) bool {
+		if p == "" {
+			return false
+		}
+		cmd := exec.Command(p, "--version")
+		out, err := cmd.Output()
+		if err != nil {
+			return false
+		}
+		ver := strings.TrimSpace(string(out))
+		parts := strings.Split(ver, ".")
+		if len(parts) > 0 {
+			var year int
+			if _, err := fmt.Sscanf(parts[0], "%d", &year); err == nil && year >= 2025 {
+				return true
+			}
+		}
+		return false
+	}
+
+	if isValid(userLocal) {
+		return userLocal
+	}
+	if isValid(currentPath) {
+		return currentPath
+	}
+
+	// Auto-download latest official yt-dlp to user's ~/.local/bin
+	if err := downloadYtDlpStandalone(userLocal); err == nil {
+		_ = os.Chmod(userLocal, 0755)
+		return userLocal
+	}
+
+	if currentPath != "" {
+		return currentPath
+	}
+	return userLocal
+}
+
+func downloadYtDlpStandalone(destPath string) error {
+	_ = os.MkdirAll(filepath.Dir(destPath), 0755)
+	url := "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
+	if runtime.GOOS == "windows" {
+		url += ".exe"
+	}
+	client := &http.Client{Timeout: 90 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	tmpFile := destPath + ".tmp"
+	f, err := os.OpenFile(tmpFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(f, resp.Body)
+	f.Close()
+
+	if copyErr != nil {
+		_ = os.Remove(tmpFile)
+		return copyErr
+	}
+
+	_ = os.Chmod(tmpFile, 0755)
+	return os.Rename(tmpFile, destPath)
 }
 
 func copyFile(src, dst string) error {

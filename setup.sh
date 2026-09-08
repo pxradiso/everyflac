@@ -107,49 +107,40 @@ has_cmd() {
     command -v "$1" >/dev/null 2>&1
 }
 
-if has_cmd yt-dlp; then
-    echo -e "  ${C_GREEN}✔${C_RESET} yt-dlp found: $(which yt-dlp)"
-elif [ -f "$HOME/.local/bin/yt-dlp" ] || [ -f "$HOME/.local/bin/yt-dlp.exe" ]; then
-    echo -e "  ${C_GREEN}✔${C_RESET} yt-dlp found in ~/.local/bin"
-    export PATH="$HOME/.local/bin:$PATH"
-else
-    echo -e "  ${C_YELLOW}⚠ yt-dlp not found.${C_RESET} Attempting automatic installation..."
-    if $IS_MACOS && has_cmd brew; then
-        brew install yt-dlp || true
-    elif $IS_LINUX; then
-        if has_cmd pacman; then
-            sudo pacman -Sy --noconfirm yt-dlp 2>/dev/null || true
-        elif has_cmd apt-get; then
-            sudo apt-get update -qq && sudo apt-get install -y yt-dlp 2>/dev/null || true
-        elif has_cmd dnf; then
-            sudo dnf install -y yt-dlp 2>/dev/null || true
-        elif has_cmd zypper; then
-            sudo zypper install -y yt-dlp 2>/dev/null || true
-        elif has_cmd apk; then
-            sudo apk add yt-dlp 2>/dev/null || true
-        elif has_cmd xbps-install; then
-            sudo xbps-install -Sy yt-dlp 2>/dev/null || true
-        fi
-    elif $IS_WINDOWS && has_cmd winget; then
-        winget install --id yt-dlp.yt-dlp -e --accept-source-agreements --accept-package-agreements || true
+YTDLP_VALID=false
+if has_cmd yt-dlp || [ -f "$HOME/.local/bin/yt-dlp" ] || [ -f "$HOME/.local/bin/yt-dlp.exe" ]; then
+    YTDLP_EXEC="$(which yt-dlp 2>/dev/null || true)"
+    if [ -z "$YTDLP_EXEC" ] && [ -f "$HOME/.local/bin/yt-dlp" ]; then
+        YTDLP_EXEC="$HOME/.local/bin/yt-dlp"
     fi
-
-    if ! has_cmd yt-dlp; then
-        echo -e "  ${C_CYAN}Downloading official yt-dlp binary...${C_RESET}"
-        mkdir -p "$HOME/.local/bin"
-        if [ "$OS" = "windows" ]; then
-            curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -o "$HOME/.local/bin/yt-dlp.exe"
-            chmod +x "$HOME/.local/bin/yt-dlp.exe" 2>/dev/null || true
+    if [ -n "$YTDLP_EXEC" ]; then
+        YTDLP_VER="$("$YTDLP_EXEC" --version 2>/dev/null || echo "0")"
+        YTDLP_YEAR="$(echo "$YTDLP_VER" | cut -d. -f1)"
+        if [ "$YTDLP_YEAR" -ge 2025 ] 2>/dev/null; then
+            YTDLP_VALID=true
+            echo -e "  ${C_GREEN}✔${C_RESET} yt-dlp up to date (v$YTDLP_VER): $YTDLP_EXEC"
         else
-            curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "$HOME/.local/bin/yt-dlp"
-            chmod +x "$HOME/.local/bin/yt-dlp"
-            if $IS_MACOS; then
-                xattr -c "$HOME/.local/bin/yt-dlp" 2>/dev/null || true
-            fi
+            echo -e "  ${C_YELLOW}⚠ yt-dlp is outdated (v$YTDLP_VER at $YTDLP_EXEC).${C_RESET}"
+            echo -e "    Debian/Ubuntu apt packages are obsolete and break on YouTube. Upgrading to latest official binary..."
         fi
-        export PATH="$HOME/.local/bin:$PATH"
-        echo -e "  ${C_GREEN}✔${C_RESET} Installed standalone yt-dlp to ~/.local/bin/yt-dlp"
     fi
+fi
+
+if [ "$YTDLP_VALID" = false ]; then
+    echo -e "  ${C_CYAN}➤ Installing latest official standalone yt-dlp...${C_RESET}"
+    mkdir -p "$HOME/.local/bin"
+    if [ "$OS" = "windows" ]; then
+        curl -fSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -o "$HOME/.local/bin/yt-dlp.exe"
+        chmod +x "$HOME/.local/bin/yt-dlp.exe" 2>/dev/null || true
+    else
+        curl -fSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "$HOME/.local/bin/yt-dlp"
+        chmod +x "$HOME/.local/bin/yt-dlp"
+        if $IS_MACOS; then
+            xattr -c "$HOME/.local/bin/yt-dlp" 2>/dev/null || true
+        fi
+    fi
+    export PATH="$HOME/.local/bin:$PATH"
+    echo -e "  ${C_GREEN}✔${C_RESET} Installed latest yt-dlp to ~/.local/bin/yt-dlp"
 fi
 
 if has_cmd ffmpeg; then
