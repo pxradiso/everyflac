@@ -408,7 +408,8 @@ func (d *Downloader) downloadSpotifyLosslessPipeline(
 
 		cmd := exec.Command(
 			ytdlpPath,
-			"-f", "ba/bestaudio",
+			"--extractor-args", "youtube:player_client=visionos,android,ios",
+			"-f", "ba/bestaudio/best",
 			"--default-search", "ytsearch",
 			"--extract-audio",
 			"--audio-format", "flac",
@@ -517,7 +518,8 @@ func (d *Downloader) downloadDirectLosslessPipeline(
 
 	cmd := exec.Command(
 		ytdlpPath,
-		"-f", "ba/bestaudio",
+		"--extractor-args", "youtube:player_client=visionos,android,ios",
+		"-f", "ba/bestaudio/best",
 		"--default-search", "ytsearch",
 		"--extract-audio",
 		"--audio-format", "flac",
