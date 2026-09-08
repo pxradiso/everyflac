@@ -121,6 +121,9 @@ else
         else
             curl -sL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "$HOME/.local/bin/yt-dlp"
             chmod +x "$HOME/.local/bin/yt-dlp"
+            if $IS_MACOS; then
+                xattr -c "$HOME/.local/bin/yt-dlp" 2>/dev/null || true
+            fi
         fi
         export PATH="$HOME/.local/bin:$PATH"
         echo -e "  ${C_GREEN}✔${C_RESET} Installed standalone yt-dlp to ~/.local/bin/yt-dlp"
@@ -164,33 +167,66 @@ echo -e "\n${C_CYAN}➤ Installing everyFLAC by pxradise...${C_RESET}"
 INSTALL_DIR="$HOME/.local/bin"
 mkdir -p "$INSTALL_DIR"
 
-BINARY_SOURCE=""
 BINARY_EXT=""
 if $IS_WINDOWS; then
     BINARY_EXT=".exe"
 fi
 
-if has_cmd go; then
+TARGET_BIN="$INSTALL_DIR/${APP_NAME}${BINARY_EXT}"
+rm -f "$TARGET_BIN" "$INSTALL_DIR/everyflac-tui${BINARY_EXT}" "$INSTALL_DIR/pxradise-everyflac${BINARY_EXT}"
+
+LOCAL_SOURCE=""
+
+# 1. Se siamo in locale e c'è main.go con il compilatore go disponibile
+if [ -f "$SCRIPT_DIR/main.go" ] && has_cmd go; then
     echo -e "  ${C_GREEN}✔ Go compiler found!${C_RESET} Building native binary for ${PLATFORM_NAME}..."
-    cd "$SCRIPT_DIR"
-    go build -ldflags="-s -w" -o "${APP_NAME}${BINARY_EXT}" main.go
-    BINARY_SOURCE="$SCRIPT_DIR/${APP_NAME}${BINARY_EXT}"
+    (cd "$SCRIPT_DIR" && go build -ldflags="-s -w" -o "${APP_NAME}${BINARY_EXT}" main.go)
+    LOCAL_SOURCE="$SCRIPT_DIR/${APP_NAME}${BINARY_EXT}"
+fi
+
+# 2. Se siamo in locale e c'è un binario precompilato nella cartella bin/
+if [ -z "$LOCAL_SOURCE" ]; then
+    if [ -f "$SCRIPT_DIR/bin/everyflac-tui-${OS}-${ARCH}${BINARY_EXT}" ]; then
+        LOCAL_SOURCE="$SCRIPT_DIR/bin/everyflac-tui-${OS}-${ARCH}${BINARY_EXT}"
+    elif [ -f "$SCRIPT_DIR/bin/${APP_NAME}-${OS}-${ARCH}${BINARY_EXT}" ]; then
+        LOCAL_SOURCE="$SCRIPT_DIR/bin/${APP_NAME}-${OS}-${ARCH}${BINARY_EXT}"
+    fi
+fi
+
+# 3. Applica il binario locale oppure scaricalo se eseguito via curl
+if [ -n "$LOCAL_SOURCE" ] && [ -f "$LOCAL_SOURCE" ]; then
+    echo -e "  ${C_GREEN}✔${C_RESET} Using local binary: $(basename "$LOCAL_SOURCE")"
+    cp "$LOCAL_SOURCE" "$TARGET_BIN"
 else
-    PRECOMPILED="$SCRIPT_DIR/bin/${APP_NAME}-${OS}-${ARCH}${BINARY_EXT}"
-    if [ -f "$PRECOMPILED" ]; then
-        echo -e "  ${C_GREEN}✔${C_RESET} Using precompiled binary: $(basename "$PRECOMPILED")"
-        BINARY_SOURCE="$PRECOMPILED"
-    else
-        echo -e "  ${C_RED}✖ Error:${C_RESET} Go compiler not found and no precompiled binary at $PRECOMPILED"
+    echo -e "  ${C_CYAN}➤ Downloading everyFLAC binary for ${PLATFORM_NAME}...${C_RESET}"
+    GITHUB_REPO="${GITHUB_REPO:-pxradiso/everyflac}"
+    BIN_NAME="everyflac-tui-${OS}-${ARCH}${BINARY_EXT}"
+    RAW_URL="https://raw.githubusercontent.com/${GITHUB_REPO}/main/bin/${BIN_NAME}"
+    RELEASE_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${BIN_NAME}"
+
+    DOWNLOAD_SUCCESS=false
+
+    if curl -fSL --progress-bar "$RAW_URL" -o "$TARGET_BIN"; then
+        DOWNLOAD_SUCCESS=true
+    elif curl -fSL --progress-bar "$RELEASE_URL" -o "$TARGET_BIN"; then
+        DOWNLOAD_SUCCESS=true
+    fi
+
+    if [ "$DOWNLOAD_SUCCESS" = false ]; then
+        echo -e "  ${C_RED}✖ Error:${C_RESET} Failed to download precompiled binary for ${PLATFORM_NAME}."
+        echo -e "    URL tried: $RAW_URL"
+        echo -e "    URL tried: $RELEASE_URL"
         exit 1
     fi
 fi
 
-TARGET_BIN="$INSTALL_DIR/${APP_NAME}${BINARY_EXT}"
-
-rm -f "$TARGET_BIN" "$INSTALL_DIR/everyflac-tui${BINARY_EXT}" "$INSTALL_DIR/pxradise-everyflac${BINARY_EXT}"
-cp "$BINARY_SOURCE" "$TARGET_BIN"
 chmod +x "$TARGET_BIN" 2>/dev/null || true
+
+# macOS: rimuove attributi di quarantena di Gatekeeper per consentire l'esecuzione immediata
+if $IS_MACOS; then
+    xattr -c "$TARGET_BIN" 2>/dev/null || true
+    xattr -d com.apple.quarantine "$TARGET_BIN" 2>/dev/null || true
+fi
 
 echo -e "  ${C_GREEN}✔ Installed executable:${C_RESET} $TARGET_BIN"
 

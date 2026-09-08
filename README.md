@@ -44,18 +44,28 @@
 
 ## 🚀 Quick Start & Installation
 
-### 🐧 Linux & 🍎 macOS (1-Click Installer)
+### 🐧 Linux & 🍎 macOS (1-Line Instant Installer)
 
-Clone the repository and run the setup script:
+Installa direttamente senza dover clonare il repository:
 
 ```bash
-git clone https://github.com/pxradise/everyflac-tui.git
-cd everyflac-tui
+curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh | bash
+```
+*(Oppure `bash -c "$(curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh)"`)*
+
+<details>
+<summary>🛠️ Oppure installa clonando il repository manualmente</summary>
+
+```bash
+git clone https://github.com/pxradiso/everyflac.git
+cd everyflac
 chmod +x ./setup.sh
 ./setup.sh
 ```
 
-> **What it does:** Automatically detects your package manager (`pacman`, `apt`, `dnf`, `zypper`, `apk`, `xbps`, `brew`), verifies `ffmpeg` and `yt-dlp`, installs the `everyflac` binary to `~/.local/bin`, and configures your shell `$PATH` (`.bashrc`, `.zshrc`, `config.fish`).
+</details>
+
+> **Cosa fa:** Rileva il gestore pacchetti di sistema (`pacman`, `apt`, `dnf`, `zypper`, `apk`, `xbps`, `brew`), verifica e installa `ffmpeg` e `yt-dlp`, scarica o compila il binario `everyflac` in `~/.local/bin` e configura automaticamente il `$PATH` nella tua shell (`.bashrc`, `.zshrc`, `config.fish`).
 
 ---
 
