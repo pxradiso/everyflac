@@ -1,4 +1,10 @@
+<div align="center">
+
+<br/>
+<br/>
+
 <img src="everyflac-256.png" alt="everyFLAC app icon" width="200" />
+
 # everyFLAC
 
 A terminal downloader for lossless FLAC music. Give it a Spotify or YouTube Music link, or a plain search query, and it downloads the audio and writes the tags and cover art into the FLAC file.
