@@ -17,6 +17,12 @@ Runs on Linux and Windows 10/11. No account or API key needed.
 
 </div>
 
+<div align="center">
+
+<img src="assets/video.gif" alt="everyFLAC demo" width="900" />
+
+</div>
+
 ## Install
 
 ### Linux
