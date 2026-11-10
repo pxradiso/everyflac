@@ -11,7 +11,9 @@ A terminal downloader for lossless FLAC music. Give it a Spotify or YouTube Musi
 
 Runs on Linux and Windows 10/11. No account or API key needed.
 
-Go 1.27+ · Linux · Windows · MIT
+[![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Windows-7fa8c9?style=flat-square&logo=linux&logoColor=white)](#)
+[![License](https://img.shields.io/badge/license-MIT-7fa8c9?style=flat-square)](LICENSE)
 
 </div>
 
