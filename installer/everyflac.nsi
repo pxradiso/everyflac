@@ -16,7 +16,7 @@ ${UnStrRep}
 ; ---------------------------------------------------------------- metadata
 !define APP_NAME       "everyFLAC"
 !ifndef APP_VERSION
-  !define APP_VERSION  "1.2.0"
+  !define APP_VERSION  "1.3.0"
 !endif
 !define APP_PUBLISHER  "pxradise"
 !define APP_URL        "https://github.com/pxradiso/everyflac"
