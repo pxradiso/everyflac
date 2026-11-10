@@ -19,10 +19,6 @@ Runs on Linux and Windows 10/11. No account or API key needed.
 
 </div>
 
-<div align="center">
-
-</div>
-
 ## Install
 
 ### Linux
