@@ -19,7 +19,7 @@ Runs on Linux and Windows 10/11. No account or API key needed.
 
 <div align="center">
 
-<img src="assets/video.gif" alt="everyFLAC demo" width="900" />
+<img src="assets/demo.gif" alt="everyFLAC demo" width="900" />
 
 </div>
 
