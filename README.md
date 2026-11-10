@@ -9,6 +9,8 @@
 
 A terminal downloader for lossless FLAC music. Give it a Spotify or YouTube Music link, or a plain search query, and it downloads the audio and writes the tags and cover art into the FLAC file.
 
+<img src="assets/demo.gif" alt="everyFLAC demo" width="900" />
+
 Runs on Linux and Windows 10/11. No account or API key needed.
 
 [![Go](https://img.shields.io/badge/Go-1.27+-00ADD8?style=flat-square&logo=go&logoColor=white)](https://go.dev)
@@ -18,8 +20,6 @@ Runs on Linux and Windows 10/11. No account or API key needed.
 </div>
 
 <div align="center">
-
-<img src="assets/demo.gif" alt="everyFLAC demo" width="900" />
 
 </div>
 
