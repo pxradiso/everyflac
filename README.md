@@ -3,7 +3,7 @@
 <br/>
 <br/>
 
-<img src="everyflac-256.png" alt="everyFLAC app icon" width="200" />
+<img src="assets/everyflac-256.png" alt="everyFLAC app icon" width="200" />
 
 # everyFLAC
 
@@ -12,6 +12,8 @@ A terminal downloader for lossless FLAC music. Give it a Spotify or YouTube Musi
 Runs on Linux and Windows 10/11. No account or API key needed.
 
 Go 1.27+ · Linux · Windows · MIT
+
+</div>
 
 ## Install
 
