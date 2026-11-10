@@ -15,6 +15,7 @@ C_MUTED="\033[38;2;86;95;137m"
 
 APP_NAME="everyflac"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GITHUB_REPO="${GITHUB_REPO:-pxradiso/everyflac}"
 
 echo -e "${C_JADE}${C_BOLD}"
 cat << 'ASCII'
@@ -41,6 +42,14 @@ if [ "$1" = "--remove" ] || [ "$1" = "-remove" ] || [ "$1" = "--uninstall" ] || 
 
     rm -rf "$HOME/.config/everyflac"
     echo -e "  ${C_GREEN}✔${C_RESET} Removed configuration directory"
+
+    rm -f "$HOME/.local/share/applications/everyflac.desktop"
+    rm -f "$HOME/.local/share/icons/hicolor/scalable/apps/everyflac.svg"
+    rm -f "$HOME/.local/share/icons/hicolor/256x256/apps/everyflac.png"
+    if command -v update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
+    fi
+    echo -e "  ${C_GREEN}✔${C_RESET} Removed app menu launcher & icon"
 
     echo -e "\n${C_GREEN}${C_BOLD}✨ everyFLAC has been successfully removed from your system.${C_RESET}"
     exit 0
@@ -100,11 +109,70 @@ case "$OS_TYPE" in
         ;;
 esac
 
+if $IS_MACOS; then
+    echo -e "${C_YELLOW}⚠ macOS builds are temporarily unavailable.${C_RESET}"
+    echo -e "  The macOS binary has been removed from this release for now."
+    echo -e "  You can still uninstall an existing install with: ./setup.sh --remove"
+    exit 1
+fi
+
 echo -e "${C_CYAN}➤ Detected Platform:${C_RESET} ${C_BOLD}${PLATFORM_NAME}${C_RESET}"
 echo -e "\n${C_CYAN}➤ Checking required dependencies...${C_RESET}"
 
 has_cmd() {
     command -v "$1" >/dev/null 2>&1
+}
+
+install_desktop_integration() {
+    if ! $IS_LINUX; then
+        return
+    fi
+
+    ICON_BASE="$HOME/.local/share/icons/hicolor"
+    APP_DIR="$HOME/.local/share/applications"
+    SVG_DEST="$ICON_BASE/scalable/apps/everyflac.svg"
+    PNG_DEST="$ICON_BASE/256x256/apps/everyflac.png"
+
+    mkdir -p "$(dirname "$SVG_DEST")" "$(dirname "$PNG_DEST")" "$APP_DIR"
+
+    SVG_SRC="$SCRIPT_DIR/assets/everyflac.svg"
+    if [ -f "$SVG_SRC" ]; then
+        cp "$SVG_SRC" "$SVG_DEST"
+    else
+        curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPO}/main/assets/everyflac.svg" -o "$SVG_DEST" || true
+    fi
+
+    PNG_SRC="$SCRIPT_DIR/assets/everyflac-256.png"
+    if [ -f "$PNG_SRC" ]; then
+        cp "$PNG_SRC" "$PNG_DEST"
+    else
+        curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPO}/main/assets/everyflac-256.png" -o "$PNG_DEST" || true
+    fi
+
+    cat > "$APP_DIR/everyflac.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=everyFLAC
+GenericName=Lossless FLAC Downloader
+Comment=All-in-one lossless FLAC music downloader
+Exec="$TARGET_BIN"
+Icon=everyflac
+Terminal=true
+Categories=AudioVideo;Audio;Utility;
+Keywords=flac;music;download;spotify;youtube;
+StartupNotify=true
+EOF
+    chmod +x "$APP_DIR/everyflac.desktop"
+
+    if has_cmd update-desktop-database; then
+        update-desktop-database "$APP_DIR" >/dev/null 2>&1 || true
+    fi
+    if has_cmd gtk-update-icon-cache; then
+        gtk-update-icon-cache -f -t "$ICON_BASE" >/dev/null 2>&1 || true
+    fi
+
+    echo -e "  ${C_GREEN}✔${C_RESET} Installed app menu launcher: ${C_BOLD}$APP_DIR/everyflac.desktop${C_RESET}"
 }
 
 echo -e "  ${C_CYAN}➤ Installing latest official yt-dlp from GitHub releases...${C_RESET}"
@@ -248,6 +316,8 @@ if $IS_MACOS; then
 fi
 
 echo -e "  ${C_GREEN}✔ Installed executable:${C_RESET} $TARGET_BIN"
+
+install_desktop_integration
 
 echo -e "\n${C_CYAN}➤ Configuring shell PATH & aliases...${C_RESET}"
 

@@ -1,224 +1,177 @@
-<div align="center">
+# everyFLAC
 
-  <img src="assets/everyflac-banner.gif" alt="everyFLAC Banner" width="750" />
+A terminal downloader for lossless FLAC music. Give it a Spotify or YouTube Music link, or a plain search query, and it downloads the audio and writes the tags and cover art into the FLAC file.
 
-### ⚡ everyFLAC by pxradise
+Runs on Linux and Windows 10/11. No account or API key needed.
 
-**The All-in-One Lossless FLAC Music Downloader & Interactive Terminal Workstation**
+Go 1.27+ · Linux · Windows · MIT
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)](https://img.shields.io/badge/Platform-Linux%20|%20macOS%20|%20Windows-7aa2f7?style=for-the-badge&logo=linux)
-[![Audio Quality](https://img.shields.io/badge/Audio-24--bit%20Hi--Fi%20Lossless%20FLAC-9ece6a?style=for-the-badge&logo=flac)](https://img.shields.io/badge/Audio-24--bit%20Hi--Fi%20Lossless%20FLAC-9ece6a?style=for-the-badge&logo=flac)
-[![License](https://img.shields.io/badge/License-MIT-bb9af7?style=for-the-badge)](LICENSE)
-[![Style](https://img.shields.io/badge/Style-Catppuccin-cba6f7?style=for-the-badge&logo=catppuccin)](https://github.com/catppuccin/catppuccin)
+## Install
 
-<p align="center">
-  <b>True Lossless Studio Sound (24-bit / 96kHz & 16-bit / 44.1kHz)</b><br>
-  Download from <b>Spotify</b>, <b>YouTube Music</b>, <b>YouTube</b>, or <b>direct search</b> with <b>zero accounts, zero cookies, and zero telemetry</b>.
-</p>
-
-</div>
-
----
-
-## ✨ Features
-
-- 🎧 **Authentic Lossless FLAC**  
-  Streams directly in pristine **24-bit / 48–96kHz** Studio Quality or **16-bit / 44.1kHz** CD Quality. No fake upscaling or lossy transcoding.
-- 🔄 **Dual Engine Architecture**  
-  Seamlessly toggle between **Spotify Engine** (`[F1]`) and **YouTube Music Engine** (`[F2]`) on the fly, or let the Auto-Engine pick the best lossless source.
-- 🎨 **Clean Tags & Embedded Artwork**  
-  High-resolution front covers are encoded in-memory and injected directly into FLAC `METADATA_BLOCK_PICTURE`. Complete VorbisComment tagging (Title, Artist, Album, Year, Track Number, ISRC). **No loose `cover.jpg` files cluttering your folders**.
-- 📁 **Direct-to-Music Storage**  
-  Downloads go directly into your `~/Music` folder (`C:\Users\<user>\Music` on Windows) without redundant nested folders. Easily change your folder anytime with `[Ctrl+D]`.
-- 🔓 **Fully Open-Source**  
-  100% free and open-source software (FOSS). Transparent, community-driven, with zero telemetry, zero tracking, and no subscriptions.
-- 🪟 **100% Cross-Platform & Windows 10/11 Optimized**  
-  Engineered specifically to eliminate Windows console glyph errors (encoding fallbacks for Consolas/cmd.exe, anti-overflow vertical sizing, zero ghost lines).
-- 🚀 **1-Click Self-Contained Installers**  
-  Automatic dependency management: installs `yt-dlp` and `ffmpeg` with live download and extraction progress bars if missing.
-
----
-
-## 🚀 Quick Start & Installation
-
-### 🐧 Linux & 🍎 macOS (1-Line Instant Installer)
-
-Install directly without having to clone the repository:
+### Linux
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh | bash
 ```
-*(Or `bash -c "$(curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh)"`)*
 
-<details>
-<summary>🛠️ Or install by cloning the repository manually</summary>
+The script installs `yt-dlp` and `ffmpeg` if they are missing, puts the `everyflac` binary in `~/.local/bin`, adds an `everyFLAC` entry to your application menu (it opens in a terminal), and adds `~/.local/bin` to your shell `PATH`.
+
+If you prefer to clone the repo:
 
 ```bash
 git clone https://github.com/pxradiso/everyflac.git
 cd everyflac
-chmod +x ./setup.sh
 ./setup.sh
 ```
 
-</details>
+### Windows 10/11
 
-> **What it does:** Automatically detects your package manager (`pacman`, `apt`, `dnf`, `zypper`, `apk`, `xbps`, `brew`), verifies and installs `ffmpeg` and `yt-dlp`, installs the `everyflac` binary to `~/.local/bin`, and configures your shell `$PATH` (`.bashrc`, `.zshrc`, `config.fish`).
+Download [`setup.exe`](setup.exe) and run it. It already contains everyFLAC, `yt-dlp.exe` and `ffmpeg.exe`, so there is nothing else to download.
 
----
+The installer:
 
-### 🪟 Windows 10 & 11 (1-Click Installer)
+- installs to `%LOCALAPPDATA%\Programs\everyFLAC`;
+- adds an everyFLAC shortcut to the Start Menu;
+- optionally adds a desktop shortcut (tick the box during setup);
+- adds the install folder to your user `PATH`;
+- registers an uninstaller in Settings → Apps.
 
-Open **PowerShell** or simply double-click **`setup.bat`**:
+The shortcuts open everyFLAC in a Command Prompt window.
 
-```powershell
-cd everyflac-tui
-.\setup.ps1
+The installer is not code-signed, so SmartScreen may warn you. Choose **More info → Run anyway**.
+
+`setup.bat` is a portable alternative that installs to `%USERPROFILE%\.local\bin` without the installer UI. `setup.ps1` runs the same script from PowerShell.
+
+### macOS
+
+macOS builds are not available right now.
+
+## Updates
+
+everyFLAC checks for a new version when the TUI starts, at most once every 24 hours. If one is available, the header shows `update vX.Y.Z`. It does not update itself.
+
+To update, run the installer again. Your settings are kept:
+
+- Windows: run the new `setup.exe`.
+- Linux: re-run the curl command.
+
+The check can be disabled with `EVERYFLAC_NO_UPDATE_CHECK=1`.
+
+## Usage
+
+Run `everyflac` to open the TUI. Paste a link or type a search query.
+
+You can also run it directly:
+
+```bash
+# Spotify track, album or playlist
+everyflac "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
+
+# YouTube Music
+everyflac "https://music.youtube.com/watch?v=k4V3Mo61fJM"
+
+# Search and download the first match
+everyflac "Daft Punk Get Lucky"
+
+# Force YouTube Music for a Spotify link
+everyflac -m youtube "https://open.spotify.com/track/..."
+
+# Custom output directory
+everyflac "Coldplay Yellow" -o ~/Music/Favorites
 ```
 
-> **What it does:**
-> - Verifies or automatically downloads standalone `yt-dlp.exe` and `ffmpeg.exe` with real-time download and extraction progress bars.
-> - Installs `everyflac.exe` to `%USERPROFILE%\.local\bin` and permanently updates your User `PATH`.
-> - 100% 7-bit ASCII safe (bypasses Windows PowerShell 5.1 quote bugs and execution policy restrictions).
+### Options
 
----
+| Flag | Description |
+| --- | --- |
+| `-o`, `-output` | Output directory (default `~/Music`) |
+| `-m`, `-mode` | Engine: `auto`, `spotify`, `youtube` |
+| `-s`, `-search` | Search and download the first match |
+| `-u`, `-url` | Download a URL without opening the TUI |
+| `-v`, `-version` | Print the version |
+| `--remove` | Uninstall everyFLAC |
+| `-y`, `-yes` | Skip the uninstall confirmation |
 
-### 🗑️ Uninstallation (All Operating Systems)
+## Keyboard shortcuts
 
-To cleanly remove everyFLAC, its shell integrations (Fish, Zsh, Bash), and configuration files:
+| Key | Action |
+| --- | --- |
+| `Enter` | Download the current input |
+| `Tab` / `Shift+Tab` | Switch between Queue and Library |
+| `Ctrl+1` / `Ctrl+2` | Switch to Spotify / YouTube Music |
+| `Ctrl+T` | Toggle the engine |
+| `Ctrl+D` | Change the destination folder |
+| `Ctrl+O` | Open the destination folder |
+| `Ctrl+A` | Toggle visual effects |
+| `Ctrl+H` | Show help |
+| `Ctrl+C` | Quit |
+| `Esc` | Unfocus the input or close help |
+| `i` or `/` | Focus the input |
+| `a`, `o`, `q`, `?` | Same actions when the input is not focused |
+
+## Uninstall
 
 ```bash
 everyflac --remove
 ```
-*(Or non-interactively without prompt: `everyflac --remove -y`)*
 
-Alternatively, using the setup script:
+Or without confirmation:
+
+```bash
+everyflac --remove -y
+```
+
+With the setup script:
+
 ```bash
 ./setup.sh --remove
-# or via curl:
-curl -fsSL https://raw.githubusercontent.com/pxradiso/everyflac/main/setup.sh | bash -s -- --remove
 ```
 
----
+## Binaries
 
-## 💻 Usage
+Pre-built binaries are in `bin/`:
 
-### 1. Interactive Terminal UI (TUI)
+| Platform | Architecture | File |
+| --- | --- | --- |
+| Windows | amd64 + arm64 | [`setup.exe`](setup.exe) |
+| Windows | x86_64 | [`bin/everyflac-tui-windows-amd64.exe`](bin/everyflac-tui-windows-amd64.exe) |
+| Windows | ARM64 | [`bin/everyflac-tui-windows-arm64.exe`](bin/everyflac-tui-windows-arm64.exe) |
+| Linux | x86_64 | [`bin/everyflac-tui-linux-amd64`](bin/everyflac-tui-linux-amd64) |
+| Linux | aarch64 | [`bin/everyflac-tui-linux-arm64`](bin/everyflac-tui-linux-arm64) |
 
-Launch the full interactive TUI:
+## Configuration
 
-```bash
-everyflac
-```
+Settings are stored in:
 
-- Paste any Spotify track, album, or playlist link.
-- Paste any YouTube Music track or album link.
-- Or simply type a search query: `Kendrick Lamar Not Like Us` or `Dua Lipa Levitating`.
-
----
-
-### 2. Fast CLI / Headless Mode
-
-Download directly from your terminal without opening the interactive UI:
-
-```bash
-# Download a Spotify track, album, or playlist
-everyflac "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
-
-# Download from YouTube Music
-everyflac "https://music.youtube.com/watch?v=k4V3Mo61fJM"
-
-# Direct search and download top match
-everyflac "Daft Punk Get Lucky"
-
-# Force YouTube Music engine for a Spotify link
-everyflac -m youtube "https://open.spotify.com/track/..."
-
-# Custom output destination
-everyflac "Coldplay Yellow" -o ~/Music/Favorites
-```
-
----
-
-## ⌨️ Keyboard Shortcuts (TUI)
-
-| Key | Action |
-| :--- | :--- |
-| `[Enter]` | Start resolving & downloading input query |
-| `[Tab]` | Switch to next tab (**Queue** ➔ **Library** ➔ **Logs**) |
-| `[Shift+Tab]` | Switch to previous tab |
-| `[F1]` / `[Alt+1]` | Switch to **Spotify Engine** |
-| `[F2]` / `[Alt+2]` | Switch to **YouTube Music Engine** |
-| `[Ctrl+T]` / `[S]` | Toggle source engine (**Spotify** ⇄ **YouTube Music**) |
-| `[1, 2, 3]` | Jump directly to tab: `1` Queue, `2` Library, `3` Logs |
-| `[Ctrl+L]` | Jump directly to **Engine Logs** |
-| `[Ctrl+D]` | Set custom destination directory (persisted permanently) |
-| `[A]` / `[Ctrl+A]` | Toggle **Animated Equalizer & Visual FX** |
-| `[O]` | Open destination directory in system file manager |
-| `[I]` or `/` | Focus search / URL input box |
-| `[Esc]` | Unfocus input box / Dismiss modals |
-| `[?]` / `[H]` | Open interactive Help modal |
-| `[Q]` | Quit application |
-
----
-
-## 📦 Pre-compiled Standalone Binaries (in `bin/`)
-
-Ready-to-run binaries are provided in the `bin/` directory for immediate use without needing Go installed:
-
-| Platform | Architecture | Binary Path |
-| :--- | :--- | :--- |
-| **Linux** | `x86_64` (AMD64) | [`bin/everyflac-tui-linux-amd64`](bin/everyflac-tui-linux-amd64) |
-| **Linux** | `aarch64` (ARM64) | [`bin/everyflac-tui-linux-arm64`](bin/everyflac-tui-linux-arm64) |
-| **macOS** | Apple Silicon (`M1/M2/M3/M4`) | [`bin/everyflac-tui-darwin-arm64`](bin/everyflac-tui-darwin-arm64) |
-| **macOS** | Intel (`x86_64`) | [`bin/everyflac-tui-darwin-amd64`](bin/everyflac-tui-darwin-amd64) |
-| **Windows** | `x86_64` (64-bit) | [`bin/everyflac-tui-windows-amd64.exe`](bin/everyflac-tui-windows-amd64.exe) |
-
----
-
-## ⚙️ Configuration
-
-Configuration is stored permanently in JSON format:
-- **Linux/macOS:** `~/.config/everyflac/config.json`
-- **Windows:** `%USERPROFILE%\.config\everyflac\config.json`
+- Linux: `~/.config/everyflac/config.json`
+- Windows: `%AppData%\everyflac\config.json`
 
 ```json
 {
-  "output_dir": "~/Music",
-  "source_mode": "auto",
+  "output_dir": "/home/user/Music",
+  "create_artist_folder": false,
+  "create_album_folder": false,
   "preferred_quality": "FLAC_24BIT",
-  "embed_cover_art": true,
-  "embed_metadata": true
+  "embed_lyrics": true,
+  "source_mode": "spotify",
+  "qobuz_mirrors": [],
+  "tidal_mirrors": []
 }
 ```
 
----
+You normally don't need to edit this file. The TUI writes it when you change settings.
 
-## 🛠️ Building from Source
+## Build from source
 
-Requirements: **Go 1.21+**, **ffmpeg**, and **yt-dlp**.
+Requires Go 1.27 or newer, plus `ffmpeg` and `yt-dlp` at runtime.
 
 ```bash
-# Clone the repository
-git clone https://github.com/pxradise/everyflac-tui.git
-cd everyflac-tui
-
-# Build optimized binary
-go build -ldflags="-s -w" -o everyflac main.go
-
-# Run
+git clone https://github.com/pxradiso/everyflac.git
+cd everyflac
+go build -ldflags="-s -w" -o everyflac .
 ./everyflac
 ```
 
----
+## Disclaimer
 
-## ⚖️ Disclaimer
-
-`everyFLAC` is designed for personal archival and educational purposes. All audio is fetched from publicly available media streams without bypassing DRM. Please support the artists by purchasing their music, official vinyls, and concert tickets.
-
----
-
-<div align="center">
-  <b>Crafted with ❤️ by pxradise</b><br>
-  <sub>Powered by Go • Charmbracelet Bubbletea • Lipgloss • yt-dlp • FFmpeg</sub>
-</div>
+everyFLAC is meant for personal archival and educational use. It downloads audio from publicly available streams and does not bypass DRM. If you like the music, buy it.

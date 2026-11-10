@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"runtime"
 	"strings"
 
 	"everyflac-tui/pkg/models"
@@ -14,407 +13,420 @@ func (m Model) View() string {
 		return m.renderHelpModal()
 	}
 
-	var s strings.Builder
+	w := m.width
+	if w <= 0 {
+		w = 100
+	}
+	h := m.height
+	if h <= 0 {
+		h = 34
+	}
 
-	s.WriteString(m.renderHeader())
-	s.WriteString("\n")
+	pageW := max(40, w-2)
+	accent := accentFor(m.cfg.SourceMode)
+	panelH := max(6, h-14)
 
-	s.WriteString(m.renderSourceSelector())
-	s.WriteString("\n")
+	content := strings.Join([]string{
+		m.renderHeader(pageW, accent),
+		"",
+		m.renderEngineRow(pageW, accent),
+		"",
+		m.renderInput(pageW, accent),
+		"",
+		m.renderTabs(accent),
+		"",
+		m.renderContentPanel(pageW, panelH, accent),
+		"",
+		m.renderFooter(pageW),
+	}, "\n")
+
+	return lipgloss.NewStyle().Padding(0, 1).Render(content)
+}
+
+func (m Model) renderHeader(w int, accent lipgloss.Color) string {
+	bar := accentStyle(accent).Render(brandBar())
+	left := bar + " " + BrandStyle.Render("everyFLAC") + " " + VersionStyle.Render(Version)
+	if m.updateAvailable && w >= 64 {
+		left += "  " + accentStyle(accent).Render("update v"+m.latestVersion)
+	}
+
+	status := "ready"
+	statusStyle := DimStyle
+	if m.isResolving {
+		status = "resolving"
+		statusStyle = StatusWarn
+	}
+	if m.isDownloading {
+		status = "downloading"
+		statusStyle = StatusBusy
+	}
+
+	right := statusStyle.Render(status)
+	if w >= 68 {
+		dir := shortenPath(m.cfg.OutputDir, clamp(w/3, 16, 30))
+		right = DimStyle.Render(dir) + "   " + right
+	}
+
+	gap := w - lipgloss.Width(left) - lipgloss.Width(right)
+	if gap < 1 {
+		right = statusStyle.Render(status)
+		gap = w - lipgloss.Width(left) - lipgloss.Width(right)
+	}
+	if gap < 1 {
+		return left
+	}
+	return left + strings.Repeat(" ", gap) + right
+}
+
+func (m Model) renderEngineRow(w int, accent lipgloss.Color) string {
+	isYT := m.cfg.SourceMode == "youtube"
+	active := lipgloss.NewStyle().Bold(true).Foreground(accent)
+
+	spotify := DimStyle.Render("spotify")
+	youtube := DimStyle.Render("youtube music")
+	if isYT {
+		youtube = active.Render("[ youtube music ]")
+	} else {
+		spotify = active.Render("[ spotify ]")
+	}
+
+	left := SectionStyle.Render("engine") + "   " + spotify + "   " + youtube
+
+	hint := ""
+	if w >= 86 {
+		hint = DimStyle.Render("ctrl+1 / ctrl+2")
+	}
+	return joinLR(left, hint, w)
+}
+
+func (m Model) renderInput(w int, accent lipgloss.Color) string {
+	label := SectionStyle.Render("search")
+	value := m.textInput.View()
+	hint := ""
 
 	if m.isSettingDir {
-		s.WriteString(m.renderDirBox())
-	} else {
-		s.WriteString(m.renderInputBox())
+		label = SectionStyle.Render("destination")
+		value = m.dirInput.View()
+		hint = DimStyle.Render("enter save   esc cancel")
 	}
-	s.WriteString("\n")
+	if m.isResolving {
+		label = StatusWarn.Render("resolving metadata" + ellipsis())
+	} else if m.isDownloading {
+		label = StatusBusy.Render("downloading" + ellipsis())
+	}
 
-	s.WriteString(m.renderTabBar())
-	s.WriteString("\n")
+	box := lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(accent).
+		Padding(0, 1).
+		Width(max(20, w-4)).
+		Render(strings.TrimRight(value, "\r\n"))
+
+	return joinLR(label, hint, w) + "\n" + box
+}
+
+func (m Model) renderTabs(accent lipgloss.Color) string {
+	names := []string{"queue", "library"}
+	counts := []int{0, len(m.library)}
+	if m.currentBatch != nil {
+		counts[0] = len(m.currentBatch.Tracks)
+	}
+
+	sep := "   "
+	var labels, underline strings.Builder
+	for i, name := range names {
+		text := name
+		if counts[i] > 0 {
+			text = fmt.Sprintf("%s %d", name, counts[i])
+		}
+
+		if i > 0 {
+			labels.WriteString(sep)
+			underline.WriteString(strings.Repeat(" ", len(sep)))
+		}
+
+		if m.activeTab == i {
+			labels.WriteString(lipgloss.NewStyle().Bold(true).Foreground(accent).Render(text))
+			underline.WriteString(accentStyle(accent).Render(strings.Repeat("─", lipgloss.Width(text))))
+		} else {
+			labels.WriteString(DimStyle.Render(text))
+			underline.WriteString(strings.Repeat(" ", lipgloss.Width(text)))
+		}
+	}
+
+	return labels.String() + "\n" + underline.String()
+}
+
+func (m Model) renderContentPanel(w, h int, accent lipgloss.Color) string {
+	innerW := w - 4
+	innerH := h - 2
+	title := "queue"
+	body := ""
 
 	switch m.activeTab {
 	case 0:
-		s.WriteString(m.renderQueueTab())
+		if m.currentBatch != nil && len(m.currentBatch.Tracks) > 0 {
+			title = "queue" + tabSeparator() + fmt.Sprint(len(m.currentBatch.Tracks))
+		}
+		body = m.renderQueueBody(innerW, innerH, accent)
 	case 1:
-		s.WriteString(m.renderLibraryTab())
-	case 2:
-		s.WriteString(m.renderLogsTab())
-	}
-
-	s.WriteString("\n")
-	s.WriteString(m.renderFooter())
-
-	return s.String()
-}
-
-func (m Model) renderHeader() string {
-	var title string
-	if m.visualFX {
-		palette := JadePalette
-		if m.cfg.SourceMode == "youtube" {
-			palette = CoralPalette
-		}
-		title = RenderGradient("⚡ everyFLAC by pxradise", m.animFrame/3, palette)
-	} else {
-		title = TitleStyle.Render("⚡ everyFLAC by pxradise")
-	}
-
-	isBusy := m.isDownloading || m.isResolving
-	eqColor := EqualizerSpotifyStyle
-	if m.cfg.SourceMode == "youtube" {
-		eqColor = EqualizerYTStyle
-	}
-	eqWave := GetEqualizer(m.animFrame, 12, isBusy, eqColor)
-
-	qualityBadge := BadgeHifiStyle.Render("UNIVERSAL LOSSLESS FLAC")
-	dirBadge := SubtextStyle.Render(fmt.Sprintf("📂 %s", truncate(m.cfg.OutputDir, 30)))
-
-	if m.width > 0 && m.width < 95 {
-		return lipgloss.JoinHorizontal(lipgloss.Center, title, " ", eqWave, "   ", dirBadge)
-	}
-
-	headerLeft := lipgloss.JoinHorizontal(lipgloss.Center, title, " ", eqWave, " ", qualityBadge)
-
-	return lipgloss.JoinHorizontal(
-		lipgloss.Center,
-		headerLeft,
-		"   ",
-		dirBadge,
-	)
-}
-
-func (m Model) renderSourceSelector() string {
-	isSpotify := m.cfg.SourceMode != "youtube"
-
-	var spBadge, ytBadge string
-	if isSpotify {
-		spBadge = BadgeSpotifyActive.Render("● SPOTIFY [F1]")
-		ytBadge = BadgeYTInactive.Render("○ YOUTUBE MUSIC [F2]")
-	} else {
-		spBadge = BadgeSpotifyInactive.Render("○ SPOTIFY [F1]")
-		ytBadge = BadgeYTActive.Render("● YOUTUBE MUSIC [F2]")
-	}
-
-	hint := SubtextStyle.Render(" (Press [F1/F2] or [Ctrl+T] to toggle)")
-
-	return lipgloss.JoinHorizontal(
-		lipgloss.Center,
-		LabelStyle.Render("Engine: "),
-		spBadge,
-		" ",
-		ytBadge,
-		hint,
-	)
-}
-
-func (m Model) renderDirBox() string {
-	title := LabelStyle.Render("📂 Set Custom Destination Folder (Saved permanently to config):")
-	box := BoxActiveStyle.Copy().
-		Width(m.dirInput.Width + 6).
-		Render(strings.TrimRight(m.dirInput.View(), "\r\n"))
-
-	hint := SubtextStyle.Render("Press [Enter] to save, [Esc] to cancel")
-
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		title,
-		box,
-		hint,
-	)
-}
-
-func (m Model) renderInputBox() string {
-	var inputTitle string
-	modeName := "SPOTIFY"
-	boxBorder := BoxActiveStyle
-	if m.cfg.SourceMode == "youtube" {
-		modeName = "YOUTUBE MUSIC"
-		boxBorder = BoxYTStyle
-	}
-
-	if m.isResolving {
-		dot := GetPulseDot(m.animFrame)
-		inputTitle = StatusResolving.Render(fmt.Sprintf("%s Resolving metadata [%s]...", dot, modeName))
-	} else if m.isDownloading {
-		wave := GetEqualizer(m.animFrame, 8, true, EqualizerStyle)
-		inputTitle = StatusDownloading.Render(fmt.Sprintf("%s Downloading & encoding lossless FLAC streams...", wave))
-	} else {
-		inputTitle = LabelStyle.Render(fmt.Sprintf("Paste %s link or search any song:", modeName))
-	}
-
-	inputBox := boxBorder.Copy().
-		Width(m.textInput.Width + 6).
-		Render(strings.TrimRight(m.textInput.View(), "\r\n"))
-
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		inputTitle,
-		inputBox,
-	)
-}
-
-func (m Model) renderTabBar() string {
-	tabs := []string{"[1] Active Queue", "[2] Downloaded Library", "[3] Engine Logs"}
-	var renderedTabs []string
-
-	for i, t := range tabs {
-		count := ""
-		if i == 0 && m.currentBatch != nil {
-			count = fmt.Sprintf(" (%d)", len(m.currentBatch.Tracks))
-		} else if i == 1 {
-			count = fmt.Sprintf(" (%d)", len(m.library))
-		} else if i == 2 {
-			count = fmt.Sprintf(" (%d)", len(m.logs))
-		}
-
-		label := t + count
-		if m.activeTab == i {
-			activeStyle := TabActiveStyle
-			if m.cfg.SourceMode == "youtube" {
-				activeStyle = activeStyle.Copy().Foreground(TokyoRed)
-			}
-			renderedTabs = append(renderedTabs, activeStyle.Render("● "+label))
+		if len(m.library) > 0 {
+			title = "library" + tabSeparator() + fmt.Sprint(len(m.library))
 		} else {
-			renderedTabs = append(renderedTabs, TabInactiveStyle.Render("○ "+label))
+			title = "library"
 		}
+		body = m.renderLibraryBody(innerW, innerH)
 	}
 
-	tabBar := lipgloss.JoinHorizontal(lipgloss.Center, renderedTabs...)
-	hint := SubtextStyle.Render(" [Tab / Shift+Tab to cycle]")
-	return lipgloss.JoinHorizontal(lipgloss.Center, tabBar, "  ", hint)
+	return renderPanel(title, body, w, h, accent)
 }
 
-func (m Model) renderQueueTab() string {
+func (m Model) renderQueueBody(innerW, innerH int, accent lipgloss.Color) string {
 	if m.currentBatch == nil || len(m.currentBatch.Progress) == 0 {
-		return GetDeck(m.animFrame, m.cfg.SourceMode, m.cfg.OutputDir, m.visualFX)
+		return m.renderEmptyQueue(innerW, innerH)
 	}
 
-	var s strings.Builder
-
-	platformBadge := BadgeSpotifyActive.Render("SPOTIFY")
-	if m.currentBatch.Platform == models.PlatformYouTubeMusic {
-		platformBadge = BadgeYTActive.Render("YOUTUBE MUSIC")
-	} else if m.currentBatch.Platform == models.PlatformYouTube {
-		platformBadge = BadgeYTActive.Render("YOUTUBE")
-	} else if m.currentBatch.Platform == models.PlatformDirectSearch {
-		platformBadge = BadgeHifiStyle.Render("SEARCH")
+	platform := strings.ToLower(string(m.currentBatch.Platform))
+	batchName := truncateWidth(m.currentBatch.Name, max(10, innerW/2))
+	header := accentStyle(accent).Render(platform) + "   " + BrandStyle.Render(batchName)
+	if m.currentBatch.Subtitle != "" {
+		header += "   " + DimStyle.Render(truncateWidth(m.currentBatch.Subtitle, max(8, innerW/3)))
 	}
 
-	header := fmt.Sprintf("  %s %s • %s", platformBadge, TrackTitleStyle.Render(truncate(m.currentBatch.Name, 32)), ArtistStyle.Render(truncate(m.currentBatch.Subtitle, 24)))
-	s.WriteString(header + "\n")
+	numW, titleW, artistW, progW, statusW := queueColumns(innerW)
+	cols := cell("#", numW, DimStyle) + "  " +
+		cell("title", titleW, DimStyle) + "  " +
+		cell("artist", artistW, DimStyle) + "  " +
+		cell("progress", progW, DimStyle) + "  " +
+		cell("status", statusW, DimStyle)
 
-	maxTracks := 10
-	if m.height > 0 {
-		maxTracks = max(3, m.height-16)
-	}
+	lines := []string{header, "", cols, ""}
+	maxRows := max(1, innerH-4)
 
 	for i, p := range m.currentBatch.Progress {
-		if i >= maxTracks {
-			remaining := len(m.currentBatch.Progress) - i
-			s.WriteString(SubtextStyle.Render(fmt.Sprintf("    ... and %d more track(s) queued\n", remaining)))
+		if i >= maxRows {
+			lines = append(lines, DimStyle.Render(ellipsis()+fmt.Sprintf(" %d more", len(m.currentBatch.Progress)-i)))
 			break
 		}
-
-		s.WriteString(m.renderTrackRow(p))
-		s.WriteString("\n")
+		lines = append(lines, m.renderTrackRow(p, numW, titleW, artistW, progW, statusW))
 	}
 
-	return s.String()
+	return strings.Join(lines, "\n")
 }
 
-func (m Model) renderTrackRow(p *models.TrackProgress) string {
-	isYT := m.cfg.SourceMode == "youtube"
+func (m Model) renderTrackRow(p *models.TrackProgress, numW, titleW, artistW, progW, statusW int) string {
+	if p == nil || p.Track == nil {
+		return ""
+	}
 
-	var statusBadge string
+	num := cell(fmt.Sprintf("%02d", p.Track.TrackNumber), numW, DimStyle)
+	title := cell(p.Track.Title, titleW, TrackTitleStyle)
+	artist := cell(p.Track.Artist, artistW, ArtistStyle)
+	bar := GetProgressBar(p.ProgressPercent, progW, m.cfg.SourceMode == "youtube")
+
+	statusText, statusStyle := trackStatus(p)
+	status := cell(statusText, statusW, statusStyle)
+
+	return num + "  " + title + "  " + artist + "  " + bar + "  " + status
+}
+
+func trackStatus(p *models.TrackProgress) (string, lipgloss.Style) {
 	switch p.Status {
 	case models.StatusPending:
-		pendingIcon := "•"
-		if runtime.GOOS == "windows" {
-			pendingIcon = "o"
-		}
-		statusBadge = SubtextStyle.Render(pendingIcon + " Queued")
+		return "queued", DimStyle
 	case models.StatusResolving:
-		dot := GetPulseDot(m.animFrame)
-		statusBadge = StatusResolving.Render(fmt.Sprintf("%s Resolving", dot))
+		return "resolving", StatusWarn
 	case models.StatusDownloading:
-		eq := GetEqualizer(m.animFrame, 4, true, EqualizerStyle)
-		if isYT {
-			eq = GetEqualizer(m.animFrame, 4, true, EqualizerYTStyle)
+		text := fmt.Sprintf("%.0f%%", p.ProgressPercent)
+		if p.SpeedBytesPerSec > 0 {
+			text += "  " + FormatSpeedWithUnit(p.SpeedBytesPerSec)
 		}
-		statusBadge = StatusDownloading.Render(fmt.Sprintf("%s %4.1f%%", eq, p.ProgressPercent))
+		return text, StatusBusy
 	case models.StatusTagging:
-		spinner := GetSpinner(m.animFrame)
-		statusBadge = StatusResolving.Render(fmt.Sprintf("%s Tagging", spinner))
+		return "tagging", StatusWarn
 	case models.StatusComplete:
-		check := "✔"
-		if runtime.GOOS == "windows" {
-			check = "√"
-		}
-		statusBadge = StatusSuccess.Render(check + " Lossless FLAC")
+		return "done", StatusSuccess
 	case models.StatusFailed:
-		failMark := "✖"
-		if runtime.GOOS == "windows" {
-			failMark = "×"
-		}
-		statusBadge = StatusFailed.Render(failMark + " Failed")
+		return "failed", StatusFailed
 	default:
-		statusBadge = SubtextStyle.Render(string(p.Status))
+		return strings.ToLower(string(p.Status)), DimStyle
 	}
-
-	num := fmt.Sprintf("%02d.", p.Track.TrackNumber)
-	title := TrackTitleStyle.Render(truncate(p.Track.Title, 28))
-	artist := ArtistStyle.Render(truncate(p.Track.Artist, 20))
-
-	speedStr := ""
-	if p.SpeedBytesPerSec > 0 {
-		speedStr = " " + FormatSpeedWithUnit(p.SpeedBytesPerSec)
-	}
-
-	progressView := GetProgressBar(p.ProgressPercent, 20, isYT)
-
-	quality := ""
-	if p.QualityLabel != "" {
-		quality = SubtextStyle.Render(fmt.Sprintf(" [%s]", p.QualityLabel))
-	}
-
-	return fmt.Sprintf("  %-3s %-30s %-22s %-18s %s%s%s",
-		num, title, artist, statusBadge, progressView, speedStr, quality)
 }
 
-func (m Model) renderLibraryTab() string {
+func (m Model) renderEmptyQueue(innerW, innerH int) string {
+	var lines []string
+	if m.visualFX {
+		wave := GetEqualizer(m.animFrame, 9, false, lipgloss.NewStyle().Foreground(LineStrong))
+		lines = append(lines, wave, "")
+	}
+	lines = append(lines,
+		TextStyle.Render("nothing queued"),
+		"",
+		DimStyle.Render("paste a link or type a song name, then press enter"),
+	)
+	return centerBlock(lines, innerW, innerH)
+}
+
+func (m Model) renderLibraryBody(innerW, innerH int) string {
 	if len(m.library) == 0 {
-		return SubtextStyle.Render("  No downloaded tracks yet in this session.\n  Downloaded FLAC files will appear here with audio specs & file sizes.")
+		return centerBlock([]string{
+			TextStyle.Render("no downloads yet"),
+			"",
+			DimStyle.Render("completed files will show up here"),
+		}, innerW, innerH)
 	}
 
-	var s strings.Builder
-	s.WriteString(LabelStyle.Render(fmt.Sprintf("  Session Library — %d FLAC files completed:\n\n", len(m.library))))
+	titleW := clamp(innerW*36/100, 14, 44)
+	artistW := clamp(innerW*22/100, 10, 26)
+	qualityW := clamp(innerW*20/100, 10, 24)
+	sizeW := 9
 
-	maxItems := 5
-	if m.height > 0 {
-		maxItems = max(2, (m.height-16)/2)
+	used := titleW + artistW + qualityW + sizeW + 6
+	if used > innerW && titleW > 12 {
+		titleW -= min(used-innerW, titleW-12)
+	} else if used < innerW {
+		titleW += innerW - used
 	}
+
+	cols := cell("title", titleW, DimStyle) + "  " +
+		cell("artist", artistW, DimStyle) + "  " +
+		cell("quality", qualityW, DimStyle) + "  " +
+		cellRight("size", sizeW, DimStyle)
+
+	lines := []string{cols, ""}
+	maxRows := max(1, innerH-2)
 
 	start := 0
-	if len(m.library) > maxItems {
-		start = len(m.library) - maxItems
+	if len(m.library) > maxRows {
+		start = len(m.library) - maxRows
 	}
 
 	for i := len(m.library) - 1; i >= start; i-- {
 		item := m.library[i]
-		sizeMB := float64(item.FileSize) / (1024 * 1024)
-		check := "✔"
-		if runtime.GOOS == "windows" {
-			check = "√"
-		}
-		s.WriteString(fmt.Sprintf("  %s %s — %s\n     %s • %.1f MB • %s\n\n",
-			StatusSuccess.Render(check),
-			TrackTitleStyle.Render(truncate(item.Title, 28)),
-			ArtistStyle.Render(truncate(item.Artist, 20)),
-			BadgeHifiStyle.Render(item.QualityLabel),
-			sizeMB,
-			SubtextStyle.Render(truncate(item.FilePath, 35)),
-		))
+		size := fmt.Sprintf("%.1f MB", float64(item.FileSize)/(1024*1024))
+		lines = append(lines,
+			cell(item.Title, titleW, TrackTitleStyle)+"  "+
+				cell(item.Artist, artistW, ArtistStyle)+"  "+
+				cell(item.QualityLabel, qualityW, MutedStyle)+"  "+
+				cellRight(size, sizeW, DimStyle),
+		)
 	}
 
-	return s.String()
+	return strings.Join(lines, "\n")
 }
 
-func (m Model) renderLogsTab() string {
-	if len(m.logs) == 0 {
-		return SubtextStyle.Render("  Engine logs are empty.")
-	}
-
-	var s strings.Builder
-	maxLogs := 10
-	if m.height > 0 {
-		maxLogs = max(3, m.height-15)
-	}
-
-	start := 0
-	if len(m.logs) > maxLogs {
-		start = len(m.logs) - maxLogs
-	}
-
-	for _, l := range m.logs[start:] {
-		timeStr := l.Timestamp.Format("15:04:05")
-		var lvl string
-		switch l.Level {
-		case "INFO":
-			lvl = SubtextStyle.Render("[INFO]")
-		case "SUCCESS":
-			lvl = StatusSuccess.Render("[OK]")
-		case "WARN":
-			lvl = StatusResolving.Render("[WARN]")
-		case "ERROR":
-			lvl = StatusFailed.Render("[ERR]")
-		}
-
-		s.WriteString(fmt.Sprintf("  %s %s %s\n", SubtextStyle.Render(timeStr), lvl, truncate(l.Message, max(30, m.width-25))))
-	}
-
-	return s.String()
-}
-
-func (m Model) renderFooter() string {
-	var keys []string
-	if m.width > 0 && m.width < 95 {
-		keys = []string{
-			"[Enter] Download",
-			"[Tab] Tabs",
-			"[F1/F2] Engine",
-			"[Ctrl+D] Folder",
-			"[A] FX",
-			"[?] Help",
-			"[Q] Quit",
+func (m Model) renderFooter(w int) string {
+	var pairs [][2]string
+	if w < 90 {
+		pairs = [][2]string{
+			{"enter", "download"},
+			{"tab", "switch"},
+			{"ctrl+1/2", "engine"},
+			{"ctrl+a", "fx"},
+			{"ctrl+c", "quit"},
+			{"ctrl+h", "help"},
 		}
 	} else {
-		keys = []string{
-			"[Enter] Download",
-			"[Tab] Tabs",
-			"[Ctrl+L] Logs",
-			"[F1/F2] Engine",
-			"[Ctrl+D] Folder",
-			"[A] FX",
-			"[O] Open",
-			"[?] Help",
-			"[Q] Quit",
+		pairs = [][2]string{
+			{"enter", "download"},
+			{"tab", "switch"},
+			{"ctrl+1/2", "engine"},
+			{"ctrl+a", "fx"},
+			{"ctrl+h", "help"},
+			{"ctrl+c", "quit"},
+			{"ctrl+o", "open"},
+			{"ctrl+d", "dir"},
 		}
 	}
-
-	return SubtextStyle.Render("  " + strings.Join(keys, "  •  "))
+	return renderKeyHints(pairs, w)
 }
 
 func (m Model) renderHelpModal() string {
-	content := []string{
-		TitleStyle.Render("⚡ everyFLAC by pxradise — Keyboard Shortcuts"),
-		"",
-		HintKeyStyle.Render(" [Enter] ") + "     Start resolving & downloading input query",
-		HintKeyStyle.Render(" [Tab] ") + "       Cycle tabs: Queue -> Library -> Engine Logs",
-		HintKeyStyle.Render(" [Shift+Tab] ") + " Cycle tabs in reverse order",
-		HintKeyStyle.Render(" [Ctrl+L] ") + "    Jump directly to Engine Logs anytime",
-		HintKeyStyle.Render(" [1, 2, 3] ") + "   Jump directly to Queue (1), Library (2), Logs (3)",
-		HintKeyStyle.Render(" [F1] ") + "        Switch directly to Spotify Engine",
-		HintKeyStyle.Render(" [F2] ") + "        Switch directly to YouTube Music Engine",
-		HintKeyStyle.Render(" [Ctrl+T] ") + "    Toggle between Spotify and YouTube Music",
-		HintKeyStyle.Render(" [Ctrl+D] ") + "    Change custom destination folder (persisted)",
-		HintKeyStyle.Render(" [O] ") + "         Open destination folder in system file manager",
-		HintKeyStyle.Render(" [I] or [/] ") + "    Focus search / URL input box",
-		HintKeyStyle.Render(" [Esc] ") + "       Unfocus input box / Dismiss dialogs",
-		HintKeyStyle.Render(" [Q] ") + "         Quit application",
-		"",
-		SubtextStyle.Render("Press [Esc] or [?] to close this help window"),
+	w := m.width
+	if w <= 0 {
+		w = 100
+	}
+	h := m.height
+	if h <= 0 {
+		h = 34
 	}
 
-	card := ModalBoxStyle.Render(strings.Join(content, "\n"))
-	return "\n\n" + lipgloss.NewStyle().PaddingLeft(4).Render(card)
+	rows := [][2]string{
+		{"enter", "download the current input"},
+		{"tab", "next tab (queue, library)"},
+		{"shift+tab", "previous tab"},
+		{"ctrl+1/2", "spotify or youtube music"},
+		{"ctrl+t", "toggle source engine"},
+		{"ctrl+d", "change destination folder"},
+		{"ctrl+o", "open destination folder"},
+		{"ctrl+a", "toggle visual effects"},
+		{"ctrl+h", "open this panel"},
+		{"ctrl+c", "quit"},
+		{"esc", "unfocus or close panel"},
+		{"i, /", "focus the input"},
+		{"a, o, q, ?", "same actions when unfocused"},
+	}
+
+	lines := []string{SectionStyle.Render("keyboard shortcuts"), ""}
+	for _, row := range rows {
+		lines = append(lines, KeyStyle.Render(fmt.Sprintf("%-13s", row[0]))+" "+DimStyle.Render(row[1]))
+	}
+	if m.updateAvailable {
+		lines = append(lines, "",
+			accentStyle(accentFor(m.cfg.SourceMode)).Render("update v"+m.latestVersion+" available"+tabSeparator()+"re-run the installer"),
+		)
+	}
+	lines = append(lines,
+		"",
+		DimStyle.Render("esc closes"+tabSeparator()+"ctrl keys work while typing"),
+	)
+
+	modalW := clamp(w-10, 46, 74)
+	if modalW > w-2 {
+		modalW = max(30, w-2)
+	}
+	modalH := len(lines) + 2
+
+	panel := renderPanel("keys", strings.Join(lines, "\n"), modalW, modalH, accentFor(m.cfg.SourceMode))
+	return lipgloss.Place(w, h, lipgloss.Center, lipgloss.Center, panel)
 }
 
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
+func queueColumns(innerW int) (numW, titleW, artistW, progW, statusW int) {
+	numW = 3
+	progW = clamp(innerW*18/100, 10, 22)
+	titleW = clamp(innerW*34/100, 14, 40)
+	artistW = clamp(innerW*22/100, 10, 26)
+	statusW = innerW - numW - titleW - artistW - progW - 8
+
+	for statusW < 9 && titleW > 12 {
+		titleW--
+		statusW++
 	}
-	if maxLen <= 3 {
-		return s[:maxLen]
+	for statusW < 9 && artistW > 9 {
+		artistW--
+		statusW++
 	}
-	return s[:maxLen-3] + "..."
+	if statusW < 0 {
+		statusW = 0
+	}
+	return
+}
+
+func shortenPath(path string, width int) string {
+	if lipgloss.Width(path) <= width {
+		return path
+	}
+	ell := ellipsis()
+	ellW := lipgloss.Width(ell)
+	if width <= ellW {
+		if windowsConsole {
+			return ell[:width]
+		}
+		return ell
+	}
+	runes := []rune(path)
+	if len(runes) <= width-ellW {
+		return path
+	}
+	return ell + string(runes[len(runes)-(width-ellW):])
 }

@@ -12,11 +12,13 @@ import (
 	"everyflac-tui/pkg/downloader"
 	"everyflac-tui/pkg/models"
 	"everyflac-tui/pkg/spotify"
+	"everyflac-tui/pkg/updater"
 	"everyflac-tui/pkg/ytmusic"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type batchResolvedMsg struct {
@@ -34,6 +36,11 @@ type trackCompletedMsg struct {
 }
 
 type batchCompletedMsg struct{}
+
+type updateCheckMsg struct {
+	available bool
+	latest    string
+}
 
 type animTickMsg time.Time
 
@@ -58,39 +65,56 @@ type Model struct {
 	animFrame     int
 	visualFX      bool
 
+	updateAvailable bool
+	latestVersion   string
+
 	currentBatch *models.DownloadBatch
 	library      []models.DownloadedFile
-	logs         []models.LogEntry
 
 	subChan chan tea.Msg
 }
 
 func NewModel(cfg *config.AppConfig) Model {
+	prompt := "› "
+	if runtime.GOOS == "windows" {
+		prompt = "> "
+	}
+
+	if cfg.SourceMode != "youtube" {
+		cfg.SourceMode = "spotify"
+	}
+	accent := accentFor(cfg.SourceMode)
+
 	ti := textinput.New()
-	ti.Placeholder = "Paste Spotify / YouTube Music link or search any song..."
+	ti.Prompt = prompt
+	ti.Placeholder = "paste a link or search a song"
+	ti.PromptStyle = lipgloss.NewStyle().Foreground(accent)
+	ti.TextStyle = lipgloss.NewStyle().Foreground(TextPrimary)
+	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(TextFaint)
+	ti.Cursor.Style = lipgloss.NewStyle().Foreground(BgBase).Background(accent)
 	ti.Focus()
 	ti.CharLimit = 500
 	ti.Width = 60
 
 	di := textinput.New()
 	di.Placeholder = "/path/to/Music"
-	di.Prompt = "📂 "
+	di.Prompt = prompt
+	di.PromptStyle = lipgloss.NewStyle().Foreground(accent)
+	di.TextStyle = lipgloss.NewStyle().Foreground(TextPrimary)
+	di.PlaceholderStyle = lipgloss.NewStyle().Foreground(TextFaint)
+	di.Cursor.Style = lipgloss.NewStyle().Foreground(BgBase).Background(accent)
 	di.CharLimit = 500
 	di.Width = 60
 
 	sp := spinner.New()
 	sp.Spinner = spinner.Pulse
-	sp.Style = StatusDownloading
+	sp.Style = StatusBusy
 
 	prog := progress.New(
-		progress.WithGradient(string(JadeGreen), string(JadeMint)),
+		progress.WithGradient(string(Accent), string(AccentSoft)),
 		progress.WithoutPercentage(),
 	)
 	prog.Width = 50
-
-	if cfg.SourceMode != "youtube" {
-		cfg.SourceMode = "spotify"
-	}
 
 	return Model{
 		cfg:           cfg,
@@ -108,7 +132,6 @@ func NewModel(cfg *config.AppConfig) Model {
 		visualFX:      true,
 		currentBatch:  nil,
 		library:       make([]models.DownloadedFile, 0),
-		logs:          make([]models.LogEntry, 0),
 		subChan:       make(chan tea.Msg, 500),
 	}
 }
@@ -119,7 +142,20 @@ func (m Model) Init() tea.Cmd {
 		m.spinner.Tick,
 		m.animTickCmd(),
 		m.listenProgressUpdates(),
+		m.checkForUpdate(),
 	)
+}
+
+// checkForUpdate runs a lightweight background check. It is intentionally
+// non-blocking and never installs anything by itself.
+func (m Model) checkForUpdate() tea.Cmd {
+	return func() tea.Msg {
+		res, err := updater.Check(Version)
+		if err != nil || !res.Available {
+			return updateCheckMsg{}
+		}
+		return updateCheckMsg{available: true, latest: res.Latest}
+	}
 }
 
 func (m Model) animTickCmd() tea.Cmd {
@@ -137,10 +173,24 @@ func (m Model) listenProgressUpdates() tea.Cmd {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	// Some terminals encode Ctrl+1/Ctrl+2 as CSI-u sequences instead of a
+	// control byte. Catch them here so the engine switch works while typing.
+	if mode := extendedEngineKey(msg); mode != "" {
+		m.setSourceMode(mode)
+		return m, nil
+	}
+
 	switch msg := msg.(type) {
 	case animTickMsg:
 		m.animFrame++
 		return m, m.animTickCmd()
+
+	case updateCheckMsg:
+		if msg.available {
+			m.updateAvailable = true
+			m.latestVersion = msg.latest
+		}
+		return m, nil
 
 	case tea.KeyMsg:
 		k := msg.String()
@@ -150,7 +200,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.showHelp {
-			if k == "esc" || k == "?" || k == "h" || k == "enter" || k == "q" {
+			if k == "esc" || k == "?" || k == "h" || k == "ctrl+h" || k == "enter" || k == "q" {
 				m.showHelp = false
 				return m, tea.ClearScreen
 			}
@@ -158,15 +208,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch k {
-		case "f1", "alt+1", "alt+s":
+		case "f1", "alt+1", "alt+s", "ctrl+1":
 			m.setSourceMode("spotify")
 			return m, nil
-		case "f2", "alt+2", "alt+y":
+		case "f2", "alt+2", "alt+y", "ctrl+2", "ctrl+@":
 			m.setSourceMode("youtube")
 			return m, nil
 		case "ctrl+t":
 			m.toggleSourceMode()
 			return m, nil
+		case "ctrl+a":
+			m.toggleVisualFX()
+			return m, nil
+		case "ctrl+o":
+			m.openOutputDir()
+			return m, nil
+		case "ctrl+h":
+			m.showHelp = true
+			return m, tea.ClearScreen
 		}
 
 		if k == "ctrl+d" {
@@ -187,7 +246,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					_ = os.MkdirAll(newDir, 0755)
 					m.cfg.OutputDir = newDir
 					_ = config.Save(m.cfg)
-					m.addLog("SUCCESS", fmt.Sprintf("Destination directory updated to: %s", newDir))
 				}
 				m.isSettingDir = false
 				m.dirInput.Blur()
@@ -207,7 +265,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if msg.Type == tea.KeyTab || k == "tab" || k == "\t" {
-			m.activeTab = (m.activeTab + 1) % 3
+			m.activeTab = (m.activeTab + 1) % 2
 			if m.activeTab == 0 {
 				m.textInput.Focus()
 				return m, tea.Batch(textinput.Blink, tea.ClearScreen)
@@ -217,7 +275,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if msg.Type == tea.KeyShiftTab || k == "shift+tab" || k == "backtab" {
-			m.activeTab = (m.activeTab + 2) % 3
+			m.activeTab = (m.activeTab + 1) % 2
 			if m.activeTab == 0 {
 				m.textInput.Focus()
 				return m, tea.Batch(textinput.Blink, tea.ClearScreen)
@@ -227,14 +285,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch k {
-		case "ctrl+l":
-			m.activeTab = 2
-			m.textInput.Blur()
-			return m, tea.ClearScreen
-
 		case "left":
 			if !m.textInput.Focused() {
-				m.activeTab = (m.activeTab + 2) % 3
+				m.activeTab = (m.activeTab + 1) % 2
 				if m.activeTab == 0 {
 					m.textInput.Focus()
 					return m, tea.Batch(textinput.Blink, tea.ClearScreen)
@@ -245,7 +298,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "right":
 			if !m.textInput.Focused() {
-				m.activeTab = (m.activeTab + 1) % 3
+				m.activeTab = (m.activeTab + 1) % 2
 				if m.activeTab == 0 {
 					m.textInput.Focus()
 					return m, tea.Batch(textinput.Blink, tea.ClearScreen)
@@ -281,33 +334,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "1":
 			if !m.textInput.Focused() {
-				m.activeTab = 0
-				m.textInput.Focus()
-				return m, tea.Batch(textinput.Blink, tea.ClearScreen)
+				m.setSourceMode("spotify")
+				return m, nil
 			}
 
 		case "2":
 			if !m.textInput.Focused() {
-				m.activeTab = 1
-				m.textInput.Blur()
-				return m, tea.ClearScreen
+				m.setSourceMode("youtube")
+				return m, nil
 			}
 
-		case "3", "l", "L":
+		case "a", "A":
 			if !m.textInput.Focused() {
-				m.activeTab = 2
-				m.textInput.Blur()
-				return m, tea.ClearScreen
-			}
-
-		case "a", "A", "ctrl+a":
-			if !m.textInput.Focused() || k == "ctrl+a" {
-				m.visualFX = !m.visualFX
-				status := "ENABLED"
-				if !m.visualFX {
-					status = "DISABLED"
-				}
-				m.addLog("INFO", fmt.Sprintf("Visual Animations %s", status))
+				m.toggleVisualFX()
 				return m, nil
 			}
 
@@ -349,7 +388,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					if !m.isResolving && !m.isDownloading {
 						m.isResolving = true
-						m.addLog("INFO", fmt.Sprintf("Resolving input query [%s]: %s", strings.ToUpper(m.cfg.SourceMode), val))
 						return m, tea.Batch(m.resolveInput(val), m.spinner.Tick)
 					}
 				}
@@ -363,8 +401,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.textInput.Width = max(35, min(75, msg.Width-15))
-		m.dirInput.Width = max(35, min(75, msg.Width-15))
+		m.textInput.Width = max(30, min(90, msg.Width-12))
+		m.dirInput.Width = max(30, min(90, msg.Width-12))
 		m.progress.Width = max(25, min(60, msg.Width-25))
 		return m, tea.ClearScreen
 
@@ -376,11 +414,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case batchResolvedMsg:
 		m.isResolving = false
 		if msg.err != nil {
-			m.addLog("ERROR", fmt.Sprintf("Failed to resolve: %v", msg.err))
 			return m, nil
 		}
 		m.currentBatch = msg.batch
-		m.addLog("SUCCESS", fmt.Sprintf("Loaded %d tracks from %s (%s)", len(msg.batch.Tracks), msg.batch.Name, msg.batch.Platform))
 		m.isDownloading = true
 		go m.startBatchDownload(msg.batch)
 
@@ -417,7 +453,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		if msg.err == nil && msg.prog != nil {
-			m.addLog("SUCCESS", fmt.Sprintf("Saved: %s - %s (%s)", msg.prog.Track.Artist, msg.prog.Track.Title, msg.prog.QualityLabel))
 			m.library = append(m.library, models.DownloadedFile{
 				FilePath:     msg.prog.FilePath,
 				Title:        msg.prog.Track.Title,
@@ -428,23 +463,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				Platform:     msg.prog.Track.Platform,
 				CompletedAt:  time.Now(),
 			})
-		} else {
-			errMsg := "unknown error"
-			if msg.err != nil {
-				errMsg = msg.err.Error()
-			}
-			trackName := "Unknown"
-			if msg.prog != nil && msg.prog.Track != nil {
-				trackName = fmt.Sprintf("%s - %s", msg.prog.Track.Artist, msg.prog.Track.Title)
-			}
-			m.addLog("ERROR", fmt.Sprintf("Failed: %s: %s", trackName, errMsg))
 		}
 
 	case batchCompletedMsg:
 		cmds = append(cmds, m.listenProgressUpdates())
 		m.isDownloading = false
 		m.textInput.SetValue("")
-		m.addLog("INFO", fmt.Sprintf("Finished batch! %d tracks in library.", len(m.library)))
 	}
 
 	if m.textInput.Focused() {
@@ -456,6 +480,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// extendedEngineKey decodes the CSI-u / modifyOtherKeys sequences emitted by
+// terminals for Ctrl+1 and Ctrl+2, which would otherwise be dropped by the
+// input parser or arrive as a plain digit.
+func extendedEngineKey(msg tea.Msg) string {
+	s, ok := msg.(fmt.Stringer)
+	if !ok {
+		return ""
+	}
+
+	text := s.String()
+	if !strings.HasPrefix(text, "?CSI[") || !strings.HasSuffix(text, "]?") {
+		return ""
+	}
+
+	var seq strings.Builder
+	for _, field := range strings.Fields(text[len("?CSI[") : len(text)-len("]?")]) {
+		var b int
+		if _, err := fmt.Sscanf(field, "%d", &b); err != nil || b < 0 || b > 255 {
+			return ""
+		}
+		seq.WriteByte(byte(b))
+	}
+
+	switch seq.String() {
+	case "49;5u", "27;5;49~":
+		return "spotify"
+	case "50;5u", "27;5;50~":
+		return "youtube"
+	default:
+		return ""
+	}
+}
+
 func (m *Model) toggleSourceMode() {
 	if m.cfg.SourceMode == "youtube" {
 		m.setSourceMode("spotify")
@@ -464,10 +521,18 @@ func (m *Model) toggleSourceMode() {
 	}
 }
 
+func (m *Model) toggleVisualFX() {
+	m.visualFX = !m.visualFX
+}
+
 func (m *Model) setSourceMode(mode string) {
 	m.cfg.SourceMode = mode
+	accent := accentFor(mode)
+	m.textInput.PromptStyle = lipgloss.NewStyle().Foreground(accent)
+	m.textInput.Cursor.Style = lipgloss.NewStyle().Foreground(BgBase).Background(accent)
+	m.dirInput.PromptStyle = lipgloss.NewStyle().Foreground(accent)
+	m.dirInput.Cursor.Style = lipgloss.NewStyle().Foreground(BgBase).Background(accent)
 	_ = config.Save(m.cfg)
-	m.addLog("INFO", fmt.Sprintf("Source engine switched to: %s", strings.ToUpper(mode)))
 }
 
 func (m *Model) resolveInput(raw string) tea.Cmd {
@@ -523,17 +588,6 @@ func (m *Model) startBatchDownload(batch *models.DownloadBatch) {
 		m.subChan <- trackCompletedMsg{prog: prog, err: err}
 	}
 	m.subChan <- batchCompletedMsg{}
-}
-
-func (m *Model) addLog(level, message string) {
-	m.logs = append(m.logs, models.LogEntry{
-		Timestamp: time.Now(),
-		Level:     level,
-		Message:   message,
-	})
-	if len(m.logs) > 300 {
-		m.logs = m.logs[len(m.logs)-300:]
-	}
 }
 
 func (m *Model) openOutputDir() {

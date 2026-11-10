@@ -20,6 +20,7 @@ func Run(force bool) error {
 	if !force {
 		fmt.Println("This will remove:")
 		fmt.Println("  • Executable binary (from ~/.local/bin)")
+		fmt.Println("  • Desktop launcher and icon (Linux)")
 		fmt.Println("  • Shell aliases and functions (Fish, Zsh, Bash)")
 		fmt.Println("  • Application configuration directory")
 		fmt.Print("\n\033[1;33mAre you sure you want to completely remove everyFLAC? [y/N]: \033[0m")
@@ -45,6 +46,9 @@ func Run(force bool) error {
 
 	// 3. Remove Executables
 	removeBinaries(homeDir)
+
+	// 4. Remove Linux desktop launcher and icon
+	cleanDesktopIntegration(homeDir)
 
 	fmt.Println("\n\033[1;32m✨ everyFLAC has been successfully removed from your system.\033[0m")
 	fmt.Println("\033[38;2;86;95;137m───────────────────────────────────────────────────────────\033[0m")
@@ -121,6 +125,24 @@ func cleanAppConfig() {
 				fmt.Printf("  \033[1;32m✔\033[0m Removed configuration directory: %s\n", cfgDir)
 			}
 		}
+	}
+}
+
+func cleanDesktopIntegration(homeDir string) {
+	targets := []string{
+		filepath.Join(homeDir, ".local", "share", "applications", "everyflac.desktop"),
+		filepath.Join(homeDir, ".local", "share", "icons", "hicolor", "scalable", "apps", "everyflac.svg"),
+		filepath.Join(homeDir, ".local", "share", "icons", "hicolor", "256x256", "apps", "everyflac.png"),
+	}
+
+	removed := false
+	for _, path := range targets {
+		if err := os.Remove(path); err == nil {
+			removed = true
+		}
+	}
+	if removed {
+		fmt.Println("  \033[1;32m✔\033[0m Removed desktop launcher and icon")
 	}
 }
 

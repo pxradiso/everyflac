@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"flag"
 	"fmt"
 	"os"
@@ -16,9 +17,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-const AppVersion = "1.1.0"
+//go:embed VERSION
+var versionFile string
+
+// AppVersion is the single source of truth, read from VERSION at build time.
+var AppVersion = strings.TrimSpace(versionFile)
 
 func main() {
+	tui.Version = AppVersion
+
 	fs := flag.NewFlagSet("everyflac", flag.ExitOnError)
 
 	outputFlag := fs.String("output", "", "Destination directory for downloaded FLAC audio (default: ~/Music)")
@@ -44,7 +51,7 @@ func main() {
 
 	fs.Usage = func() {
 		fmt.Println(tui.GetASCIIBanner(0, false, false))
-		fmt.Printf("\n⚡ everyFLAC by pxradise v%s — All-in-One Lossless FLAC Music Downloader\n\n", AppVersion)
+		fmt.Printf("\neveryFLAC v%s — all-in-one lossless FLAC downloader\n\n", AppVersion)
 		fmt.Println("Usage:")
 		fmt.Println("  everyflac                           Launch interactive TUI")
 		fmt.Println("  everyflac <url_or_search>           Download directly from command line")
@@ -61,7 +68,7 @@ func main() {
 	_ = fs.Parse(reordered)
 
 	if *versionFlag {
-		fmt.Printf("⚡ everyFLAC by pxradise v%s\n", AppVersion)
+		fmt.Printf("everyFLAC v%s\n", AppVersion)
 		return
 	}
 
@@ -115,7 +122,14 @@ func main() {
 		tea.WithAltScreen(),
 	)
 
-	if _, err := program.Run(); err != nil {
+	// Ask the terminal to report Ctrl+1/Ctrl+2 distinctly. Level 1 only
+	// affects keys without a legacy control code, so Ctrl+A/O/H keep working.
+	// Terminals that do not implement modifyOtherKeys simply ignore this.
+	fmt.Print("\x1b[>4;1m")
+
+	_, err = program.Run()
+	fmt.Print("\x1b[>4;0m")
+	if err != nil {
 		fmt.Printf("Error running everyFLAC by pxradise: %v\n", err)
 		os.Exit(1)
 	}
@@ -146,9 +160,9 @@ func rearrangeArgs(args []string) []string {
 
 func runHeadlessCLI(input string, cfg *config.AppConfig) {
 	fmt.Println(tui.GetASCIIBanner(0, cfg.SourceMode == "youtube", false))
-	fmt.Printf("\n⚡ everyFLAC by pxradise CLI v%s\n", AppVersion)
-	fmt.Printf("Engine Mode: %s\n", strings.ToUpper(cfg.SourceMode))
-	fmt.Printf("Output: %s\n\n", cfg.OutputDir)
+	fmt.Printf("\neveryFLAC CLI v%s\n", AppVersion)
+	fmt.Printf("engine: %s\n", strings.ToLower(cfg.SourceMode))
+	fmt.Printf("output: %s\n\n", cfg.OutputDir)
 
 	input = strings.TrimSpace(input)
 	var batch *models.DownloadBatch
@@ -173,14 +187,14 @@ func runHeadlessCLI(input string, cfg *config.AppConfig) {
 	} else if (mode == "auto" || mode == "spotify") && spotify.IsSpotifyURL(input) {
 		link, pErr := spotify.ParseLink(input)
 		if pErr != nil {
-			fmt.Printf("Error: %v\n", pErr)
+			fmt.Printf("error: %v\n", pErr)
 			os.Exit(1)
 		}
-		fmt.Println("Fetching Spotify metadata payload...")
+		fmt.Println("resolving spotify metadata...")
 		spClient := spotify.NewClient()
 		batch, err = spClient.FetchBatch(link)
 	} else {
-		fmt.Printf("Resolving metadata for '%s'...\n", input)
+		fmt.Printf("resolving metadata for %q...\n", input)
 		ytClient := ytmusic.NewClient()
 		batch, err = ytClient.ResolveInput(input)
 		if err == nil && batch != nil && mode == "spotify" {
@@ -192,16 +206,16 @@ func runHeadlessCLI(input string, cfg *config.AppConfig) {
 	}
 
 	if err != nil {
-		fmt.Printf("Error resolving metadata: %v\n", err)
+		fmt.Printf("error resolving metadata: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Loaded: %s by %s (%d tracks, platform: %s)\n\n",
+	fmt.Printf("loaded: %s by %s (%d tracks, %s)\n\n",
 		batch.Name, batch.Subtitle, len(batch.Tracks), batch.Platform)
 
 	dl := downloader.NewDownloader(cfg)
 	for i, track := range batch.Tracks {
-		fmt.Printf("[%d/%d] %s - %s...\n", i+1, len(batch.Tracks), track.Artist, track.Title)
+		fmt.Printf("[%d/%d] %s - %s\n", i+1, len(batch.Tracks), track.Artist, track.Title)
 
 		prog, dlErr := dl.DownloadTrack(track, batch, func(p *models.TrackProgress) {
 			if p.Status == models.StatusDownloading && p.ProgressPercent > 0 {
@@ -209,17 +223,17 @@ func runHeadlessCLI(input string, cfg *config.AppConfig) {
 				if p.SpeedBytesPerSec > 0 {
 					speed = fmt.Sprintf(" (%.1f MB/s)", float64(p.SpeedBytesPerSec)/(1024*1024))
 				}
-				fmt.Printf("\r  ↳ Downloading lossless FLAC... %4.1f%%%s", p.ProgressPercent, speed)
+				fmt.Printf("\r  downloading %4.1f%%%s", p.ProgressPercent, speed)
 			}
 		})
 
 		fmt.Println()
 		if dlErr != nil {
-			fmt.Printf("  ✖ Failed: %v\n\n", dlErr)
+			fmt.Printf("  failed: %v\n\n", dlErr)
 		} else {
-			fmt.Printf("  ✔ Saved: %s (%s, %s)\n\n", prog.FilePath, prog.QualityLabel, prog.SourceUsed)
+			fmt.Printf("  saved: %s (%s, %s)\n\n", prog.FilePath, prog.QualityLabel, prog.SourceUsed)
 		}
 	}
 
-	fmt.Println("All done! Enjoy your lossless FLAC music with everyFLAC by pxradise.")
+	fmt.Println("done.")
 }
