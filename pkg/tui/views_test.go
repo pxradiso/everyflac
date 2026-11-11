@@ -170,6 +170,26 @@ func TestUpdateNotice(t *testing.T) {
 	assertFits(t, m.View(), 50, 20)
 }
 
+func TestEngineKeyHints(t *testing.T) {
+	if windowsConsole {
+		t.Skip("Windows uses alt+1/2 and f1/f2")
+	}
+
+	if got := engineKeys(); got != "ctrl+1 / ctrl+2" {
+		t.Fatalf("engineKeys() = %q", got)
+	}
+
+	m := testModel(120, 34)
+	if !strings.Contains(m.View(), "ctrl+1 / ctrl+2") {
+		t.Error("engine row should show the Ctrl shortcut on Linux")
+	}
+
+	m.showHelp = true
+	if !strings.Contains(m.View(), "ctrl+1 / ctrl+2") {
+		t.Error("help panel should show the Ctrl shortcut on Linux")
+	}
+}
+
 func TestEmptyState(t *testing.T) {
 	m := testModel(100, 34)
 	if !strings.Contains(m.View(), "nothing queued") {
