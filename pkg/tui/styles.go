@@ -51,7 +51,7 @@ func engineKeys() string {
 }
 
 // Version is assigned by main at startup.
-var Version = "1.4.0"
+var Version = "1.4.1"
 
 // A deliberately small palette: neutral surfaces, one accent, three semantic
 // colors. Everything else is text at different levels of contrast.
