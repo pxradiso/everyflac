@@ -81,8 +81,10 @@ Section "$(SEC_APP_NAME)" SEC_APP
   SetOutPath "$INSTDIR"
 
   ; Native build when possible, x64 build (also runs on ARM64) otherwise.
+  ; A 32-bit installer sees PROCESSOR_ARCHITECTURE=x86 on 64-bit Windows,
+  ; so trust PROCESSOR_ARCHITEW6432 first and only fall back when it is empty.
   ReadEnvStr $0 "PROCESSOR_ARCHITEW6432"
-  ${If} $0 != "ARM64"
+  ${If} $0 == ""
     ReadEnvStr $0 "PROCESSOR_ARCHITECTURE"
   ${EndIf}
   ${If} $0 == "x86"
