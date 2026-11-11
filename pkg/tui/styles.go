@@ -33,6 +33,23 @@ func brandBar() string {
 	return "▍"
 }
 
+// engineKeysCompact and engineKeys label the engine switch shortcut.
+// Windows terminals do not deliver Ctrl+digit to the application (and Windows
+// Terminal uses Ctrl+1..9 to switch tabs), so Windows uses Alt+digit instead.
+func engineKeysCompact() string {
+	if windowsConsole {
+		return "alt+1/2"
+	}
+	return "ctrl+1/2"
+}
+
+func engineKeys() string {
+	if windowsConsole {
+		return "alt+1 / alt+2"
+	}
+	return "ctrl+1 / ctrl+2"
+}
+
 // Version is assigned by main at startup.
 var Version = "1.4.0"
 

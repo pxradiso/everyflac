@@ -111,7 +111,8 @@ everyflac "Coldplay Yellow" -o ~/Music/Favorites
 | --- | --- |
 | `Enter` | Download the current input |
 | `Tab` / `Shift+Tab` | Switch between Queue and Library |
-| `Ctrl+1` / `Ctrl+2` | Switch to Spotify / YouTube Music |
+| `Ctrl+1` / `Ctrl+2` | Switch to Spotify / YouTube Music (Linux) |
+| `Alt+1` / `Alt+2` or `F1` / `F2` | Switch to Spotify / YouTube Music (Windows) |
 | `Ctrl+T` | Toggle the engine |
 | `Ctrl+D` | Change the destination folder |
 | `Ctrl+O` | Open the destination folder |
@@ -121,6 +122,8 @@ everyflac "Coldplay Yellow" -o ~/Music/Favorites
 | `Esc` | Unfocus the input or close help |
 | `i` or `/` | Focus the input |
 | `a`, `o`, `q`, `?` | Same actions when the input is not focused |
+
+On Windows, `Ctrl+1`/`Ctrl+2` are captured by the terminal (Windows Terminal uses them to switch tabs) and the console API does not report them to the app. Use `Alt+1`/`Alt+2` or `F1`/`F2` there.
 
 ## Uninstall
 

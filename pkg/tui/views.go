@@ -94,7 +94,7 @@ func (m Model) renderEngineRow(w int, accent lipgloss.Color) string {
 
 	hint := ""
 	if w >= 86 {
-		hint = DimStyle.Render("ctrl+1 / ctrl+2")
+		hint = DimStyle.Render(engineKeys())
 	}
 	return joinLR(left, hint, w)
 }
@@ -321,7 +321,7 @@ func (m Model) renderFooter(w int) string {
 		pairs = [][2]string{
 			{"enter", "download"},
 			{"tab", "switch"},
-			{"ctrl+1/2", "engine"},
+			{engineKeysCompact(), "engine"},
 			{"ctrl+a", "fx"},
 			{"ctrl+c", "quit"},
 			{"ctrl+h", "help"},
@@ -330,7 +330,7 @@ func (m Model) renderFooter(w int) string {
 		pairs = [][2]string{
 			{"enter", "download"},
 			{"tab", "switch"},
-			{"ctrl+1/2", "engine"},
+			{engineKeysCompact(), "engine"},
 			{"ctrl+a", "fx"},
 			{"ctrl+h", "help"},
 			{"ctrl+c", "quit"},
@@ -355,7 +355,8 @@ func (m Model) renderHelpModal() string {
 		{"enter", "download the current input"},
 		{"tab", "next tab (queue, library)"},
 		{"shift+tab", "previous tab"},
-		{"ctrl+1/2", "spotify or youtube music"},
+		{engineKeys(), "spotify or youtube music"},
+		{"f1 / f2", "spotify or youtube music"},
 		{"ctrl+t", "toggle source engine"},
 		{"ctrl+d", "change destination folder"},
 		{"ctrl+o", "open destination folder"},
@@ -374,6 +375,11 @@ func (m Model) renderHelpModal() string {
 	if m.updateAvailable {
 		lines = append(lines, "",
 			accentStyle(accentFor(m.cfg.SourceMode)).Render("update v"+m.latestVersion+" available"+tabSeparator()+"re-run the installer"),
+		)
+	}
+	if windowsConsole {
+		lines = append(lines, "",
+			DimStyle.Render("windows: use alt+1/2 or f1/f2"),
 		)
 	}
 	lines = append(lines,
