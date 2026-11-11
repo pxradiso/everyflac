@@ -376,6 +376,10 @@ func (m Model) renderHelpModal() string {
 		lines = append(lines, "",
 			accentStyle(accentFor(m.cfg.SourceMode)).Render("update v"+m.latestVersion+" available"+tabSeparator()+"re-run the installer"),
 		)
+	} else if m.updateChecked {
+		lines = append(lines, "",
+			DimStyle.Render("up to date"+tabSeparator()+"v"+Version),
+		)
 	}
 	if windowsConsole {
 		lines = append(lines, "",

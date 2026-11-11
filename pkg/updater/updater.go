@@ -39,6 +39,16 @@ type cacheFile struct {
 // The result is cached for 24 hours so the TUI does not hit GitHub on every
 // launch. Set EVERYFLAC_NO_UPDATE_CHECK=1 to disable the check completely.
 func Check(current string) (Result, error) {
+	return check(current, false)
+}
+
+// CheckFresh is like Check but ignores the cache. Use it for explicit,
+// user-requested checks.
+func CheckFresh(current string) (Result, error) {
+	return check(current, true)
+}
+
+func check(current string, force bool) (Result, error) {
 	current = normalize(current)
 	res := Result{Current: current}
 
@@ -46,10 +56,12 @@ func Check(current string) (Result, error) {
 		return res, nil
 	}
 
-	if c, ok := readCache(); ok && time.Since(time.Unix(c.CheckedAt, 0)) < checkInterval {
-		res.Latest = normalize(c.Latest)
-		res.Available = isNewer(res.Latest, current)
-		return res, nil
+	if !force {
+		if c, ok := readCache(); ok && time.Since(time.Unix(c.CheckedAt, 0)) < checkInterval {
+			res.Latest = normalize(c.Latest)
+			res.Available = isNewer(res.Latest, current)
+			return res, nil
+		}
 	}
 
 	latest, err := fetchLatest()

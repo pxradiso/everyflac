@@ -38,6 +38,7 @@ type trackCompletedMsg struct {
 type batchCompletedMsg struct{}
 
 type updateCheckMsg struct {
+	checked   bool
 	available bool
 	latest    string
 }
@@ -66,6 +67,7 @@ type Model struct {
 	visualFX      bool
 
 	updateAvailable bool
+	updateChecked   bool
 	latestVersion   string
 
 	currentBatch *models.DownloadBatch
@@ -151,10 +153,10 @@ func (m Model) Init() tea.Cmd {
 func (m Model) checkForUpdate() tea.Cmd {
 	return func() tea.Msg {
 		res, err := updater.Check(Version)
-		if err != nil || !res.Available {
+		if err != nil {
 			return updateCheckMsg{}
 		}
-		return updateCheckMsg{available: true, latest: res.Latest}
+		return updateCheckMsg{checked: true, available: res.Available, latest: res.Latest}
 	}
 }
 
@@ -186,6 +188,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.animTickCmd()
 
 	case updateCheckMsg:
+		if msg.checked {
+			m.updateChecked = true
+		}
 		if msg.available {
 			m.updateAvailable = true
 			m.latestVersion = msg.latest

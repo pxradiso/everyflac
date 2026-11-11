@@ -168,6 +168,14 @@ func TestUpdateNotice(t *testing.T) {
 	m.width = 50
 	m.height = 20
 	assertFits(t, m.View(), 50, 20)
+
+	// A successful check with no newer release is shown as up to date.
+	up := testModel(120, 34)
+	up.updateChecked = true
+	up.showHelp = true
+	if !strings.Contains(up.View(), "up to date") {
+		t.Error("help panel should show the up-to-date state after a successful check")
+	}
 }
 
 func TestEngineKeyHints(t *testing.T) {

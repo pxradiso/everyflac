@@ -13,6 +13,7 @@ import (
 	"everyflac-tui/pkg/spotify"
 	"everyflac-tui/pkg/tui"
 	"everyflac-tui/pkg/uninstaller"
+	"everyflac-tui/pkg/updater"
 	"everyflac-tui/pkg/ytmusic"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -43,6 +44,8 @@ func main() {
 	versionFlag := fs.Bool("version", false, "Print application version")
 	fs.BoolVar(versionFlag, "v", false, "Print application version (shorthand)")
 
+	checkUpdateFlag := fs.Bool("check-update", false, "Check for a newer release and exit")
+
 	removeFlag := fs.Bool("remove", false, "Uninstall everyFLAC and remove binaries and shell configurations")
 	fs.BoolVar(removeFlag, "uninstall", false, "Uninstall everyFLAC (alias for --remove)")
 
@@ -59,6 +62,7 @@ func main() {
 		fmt.Println("  everyflac --search <query>          Search and download top match directly")
 		fmt.Println("  everyflac --output <dir>            Set destination folder (default: ~/Music)")
 		fmt.Println("  everyflac --mode <auto|spotify|yt>  Force source engine mode")
+		fmt.Println("  everyflac --check-update            Check for a newer release and exit")
 		fmt.Println("  everyflac --remove                  Uninstall and remove everyFLAC completely")
 		fmt.Println("\nOptions:")
 		fs.PrintDefaults()
@@ -69,6 +73,11 @@ func main() {
 
 	if *versionFlag {
 		fmt.Printf("everyFLAC v%s\n", AppVersion)
+		return
+	}
+
+	if *checkUpdateFlag {
+		runUpdateCheck()
 		return
 	}
 
@@ -133,6 +142,22 @@ func main() {
 		fmt.Printf("Error running everyFLAC by pxradise: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// runUpdateCheck performs an explicit, cache-bypassing update check and prints
+// the result. It is what `everyflac --check-update` runs.
+func runUpdateCheck() {
+	res, err := updater.CheckFresh(AppVersion)
+	if err != nil {
+		fmt.Printf("everyFLAC v%s: update check failed: %v\n", AppVersion, err)
+		os.Exit(1)
+	}
+	if res.Available {
+		fmt.Printf("everyFLAC v%s: update available: v%s\n", res.Current, res.Latest)
+		fmt.Printf("https://github.com/%s/releases/latest\n", updater.Repo)
+		return
+	}
+	fmt.Printf("everyFLAC v%s: up to date\n", res.Current)
 }
 
 func rearrangeArgs(args []string) []string {

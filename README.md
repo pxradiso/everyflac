@@ -61,7 +61,13 @@ macOS builds are not available right now.
 
 ## Updates
 
-everyFLAC checks for a new version when the TUI starts, at most once every 24 hours. If one is available, the header shows `update vX.Y.Z`. It does not update itself.
+everyFLAC checks for a new version when the TUI starts, at most once every 24 hours. If one is available, the header shows `update vX.Y.Z`. If you are already on the latest version, the help panel (`Ctrl+H`) shows `up to date`. It does not update itself.
+
+You can force a check at any time:
+
+```bash
+everyflac --check-update
+```
 
 To update, run the installer again. Your settings are kept:
 
@@ -102,6 +108,7 @@ everyflac "Coldplay Yellow" -o ~/Music/Favorites
 | `-s`, `-search` | Search and download the first match |
 | `-u`, `-url` | Download a URL without opening the TUI |
 | `-v`, `-version` | Print the version |
+| `--check-update` | Check for a newer release and exit |
 | `--remove` | Uninstall everyFLAC |
 | `-y`, `-yes` | Skip the uninstall confirmation |
 
